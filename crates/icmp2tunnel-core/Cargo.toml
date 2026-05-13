@@ -8,5 +8,8 @@ rust-version.workspace = true
 [lib]
 path = "src/lib.rs"
 
+[dependencies]
+icmp2tunnel-proto = { path = "../icmp2tunnel-proto" }
+
 [lints]
 workspace = true

@@ -211,33 +211,33 @@ crates/icmp2tunnel-core
 
 ### Tasks
 
-- [ ] Define `SessionId`.
-- [ ] Define `PacketNo`.
-- [ ] Define session states:
-  - [ ] `New`
-  - [ ] `HelloSent`
-  - [ ] `Established`
-  - [ ] `Draining`
-  - [ ] `Closed`
-- [ ] Implement client `HELLO`.
-- [ ] Implement server `HELLO_REPLY`.
-- [ ] Implement session key derivation.
-- [ ] Implement packet number allocation.
-- [ ] Implement ACK generation.
-- [ ] Implement ACK processing.
-- [ ] Implement replay protection integration.
-- [ ] Implement idle timeout.
-- [ ] Implement graceful shutdown.
-- [ ] Add unit tests for valid state transitions.
-- [ ] Add unit tests for invalid state transitions.
+- [x] Define `SessionId`.
+- [x] Define `PacketNo`.
+- [x] Define session states:
+  - [x] `New`
+  - [x] `HelloSent`
+  - [x] `Established`
+  - [x] `Draining`
+  - [x] `Closed`
+- [x] Implement client `HELLO`.
+- [x] Implement server `HELLO_REPLY`.
+- [x] Implement session key derivation.
+- [x] Implement packet number allocation.
+- [x] Implement ACK generation.
+- [x] Implement ACK processing.
+- [x] Implement replay protection integration.
+- [x] Implement idle timeout.
+- [x] Implement graceful shutdown.
+- [x] Add unit tests for valid state transitions.
+- [x] Add unit tests for invalid state transitions.
 
 ### Acceptance Criteria
 
-- [ ] Client can establish a session with server over fake transport.
-- [ ] Duplicate packets are rejected.
-- [ ] Out-of-window packets are rejected.
-- [ ] Session times out after configured idle timeout.
-- [ ] Invalid state transitions are rejected.
+- [x] Client can establish a session with server over fake transport.
+- [x] Duplicate packets are rejected.
+- [x] Out-of-window packets are rejected.
+- [x] Session times out after configured idle timeout.
+- [x] Invalid state transitions are rejected.
 
 ---
 
