@@ -2,7 +2,7 @@
 #![deny(warnings)]
 
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, VecDeque},
     time::{Duration, Instant},
 };
 
@@ -56,7 +56,10 @@ pub enum SessionError {
     UnknownStream,
     StreamClosed,
     StreamOffset,
+    InflightFull,
+    TooManyRetransmissions,
 }
+
 
 impl From<ProtoError> for SessionError {
     fn from(value: ProtoError) -> Self { Self::Proto(value) }
@@ -67,12 +70,27 @@ pub struct SessionConfig {
     pub idle_timeout: Duration,
     pub psk: Vec<u8>,
     pub salt: Vec<u8>,
+    pub retransmit_timeout: Duration,
+    pub max_retransmissions: u8,
+    pub max_inflight_packets: usize,
 }
+
 
 impl Default for SessionConfig {
     fn default() -> Self {
-        Self { idle_timeout: Duration::from_secs(30), psk: b"dev-psk".to_vec(), salt: b"dev-salt".to_vec() }
+        Self { idle_timeout: Duration::from_secs(30), psk: b"dev-psk".to_vec(), salt: b"dev-salt".to_vec(), retransmit_timeout: Duration::from_millis(300), max_retransmissions: 5, max_inflight_packets: 128 }
     }
+}
+
+
+
+#[derive(Debug, Clone)]
+struct RetransmitEntry {
+    pn: PacketNo,
+    frame: MuxFrame,
+    retries: u8,
+    deadline: Instant,
+    rto: Duration,
 }
 
 #[derive(Debug)]
@@ -87,11 +105,15 @@ pub struct Session {
     cfg: SessionConfig,
     streams: BTreeMap<StreamId, StreamEntry>,
     stream_limit: usize,
+    inflight: VecDeque<RetransmitEntry>,
+    cwnd_packets: usize,
 }
+
 
 impl Session {
     #[must_use]
     pub fn new(id: SessionId, cfg: SessionConfig) -> Self {
+        let cwnd_packets = cfg.max_inflight_packets;
         Self {
             id,
             state: SessionState::New,
@@ -103,6 +125,8 @@ impl Session {
             cfg,
             streams: BTreeMap::new(),
             stream_limit: 64,
+            inflight: VecDeque::new(),
+            cwnd_packets,
         }
     }
 
@@ -168,6 +192,7 @@ impl Session {
             return Err(SessionError::Replay);
         }
         self.highest_ack = n;
+        self.on_packet_acked(n);
         self.touch();
         Ok(n)
     }
@@ -202,6 +227,47 @@ impl Session {
     }
 
     fn touch(&mut self) { self.last_activity = Instant::now(); }
+
+    pub fn queue_reliable_frame(&mut self, pn: PacketNo, frame: MuxFrame, now: Instant) -> Result<(), SessionError> {
+        let limit = self.cfg.max_inflight_packets.min(self.cwnd_packets.max(1));
+        if self.inflight.len() >= limit {
+            return Err(SessionError::InflightFull);
+        }
+        self.inflight.push_back(RetransmitEntry {
+            pn,
+            frame,
+            retries: 0,
+            deadline: now + self.cfg.retransmit_timeout,
+            rto: self.cfg.retransmit_timeout,
+        });
+        Ok(())
+    }
+
+    pub fn on_packet_acked(&mut self, acked: PacketNo) {
+        self.inflight.retain(|e| e.pn.0 > acked.0);
+    }
+
+    pub fn poll_retransmit(&mut self, now: Instant) -> Result<Vec<(PacketNo, MuxFrame)>, SessionError> {
+        let mut out = Vec::new();
+        for e in &mut self.inflight {
+            if now < e.deadline {
+                continue;
+            }
+            if e.retries >= self.cfg.max_retransmissions {
+                return Err(SessionError::TooManyRetransmissions);
+            }
+            e.retries = e.retries.saturating_add(1);
+            e.rto = e.rto.saturating_mul(2);
+            e.deadline = now + e.rto;
+            out.push((e.pn, e.frame.clone()));
+        }
+        Ok(out)
+    }
+
+    pub fn inflight_count(&self) -> usize { self.inflight.len() }
+
+    pub fn set_cwnd_packets(&mut self, packets: usize) { self.cwnd_packets = packets.max(1); }
+
 
     pub fn open_stream(&mut self, stream_id: StreamId) -> Result<MuxFrame, SessionError> {
         if self.streams.len() >= self.stream_limit {
@@ -458,5 +524,38 @@ mod tests {
         s.open_stream(StreamId(1)).expect("s1");
         s.open_stream(StreamId(2)).expect("s2");
         assert!(matches!(s.open_stream(StreamId(3)), Err(SessionError::StreamLimit)));
+    }
+}
+
+
+#[cfg(test)]
+mod reliability_tests {
+    use super::*;
+
+    #[test]
+    fn retransmit_queue_timeout_backoff_and_limit() {
+        let mut s = Session::new(SessionId(99), SessionConfig::default());
+        s.state = SessionState::Established;
+        let now = Instant::now();
+        let f = MuxFrame { op: MuxOp::Ping, stream_id: 0, window: 0, body: vec![] };
+        s.queue_reliable_frame(PacketNo(1), f.clone(), now).expect("queue");
+        assert_eq!(s.inflight_count(), 1);
+        assert!(s.poll_retransmit(now + Duration::from_millis(100)).expect("no due").is_empty());
+        let due = s.poll_retransmit(now + Duration::from_millis(350)).expect("due");
+        assert_eq!(due.len(), 1);
+        assert_eq!(due[0].0, PacketNo(1));
+        s.on_packet_acked(PacketNo(1));
+        assert_eq!(s.inflight_count(), 0);
+    }
+
+    #[test]
+    fn inflight_bound_enforced() {
+        let cfg = SessionConfig { max_inflight_packets: 1, ..SessionConfig::default() };
+        let mut s = Session::new(SessionId(77), cfg);
+        s.state = SessionState::Established;
+        let now = Instant::now();
+        let f = MuxFrame { op: MuxOp::Ping, stream_id: 0, window: 0, body: vec![] };
+        s.queue_reliable_frame(PacketNo(1), f.clone(), now).expect("first");
+        assert!(matches!(s.queue_reliable_frame(PacketNo(2), f, now), Err(SessionError::InflightFull)));
     }
 }
