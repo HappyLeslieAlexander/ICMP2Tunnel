@@ -364,12 +364,12 @@ icmp2tunnel-client
 
 ### Tasks
 
-- [ ] Add `clap` CLI.
-- [ ] Add config file loading.
-- [ ] Add environment variable overrides.
-- [ ] Add structured logging.
-- [ ] Bind local SOCKS5 listener.
-- [ ] Refuse non-loopback listen address unless explicitly configured.
+- [x] Add `clap` CLI.
+- [x] Add config file loading.
+- [x] Add environment variable overrides.
+- [x] Add structured logging.
+- [x] Bind local SOCKS5 listener.
+- [x] Refuse non-loopback listen address unless explicitly configured.
 - [ ] Create ICMP client backend from platform detection.
 - [ ] Create session to server.
 - [ ] Map SOCKS5 connections to tunnel streams.
@@ -381,8 +381,8 @@ icmp2tunnel-client
 
 ### Acceptance Criteria
 
-- [ ] Client starts with `examples/client.toml`.
-- [ ] Client listens on `127.0.0.1:1080`.
+- [x] Client starts with `examples/client.toml`.
+- [x] Client listens on `127.0.0.1:1080`.
 - [ ] Client can open stream for SOCKS5 `CONNECT`.
 - [ ] Client can shut down gracefully.
 - [ ] Client logs connection lifecycle events.
@@ -401,10 +401,10 @@ icmp2tunnel-server
 
 ### Tasks
 
-- [ ] Add `clap` CLI.
-- [ ] Add config file loading.
-- [ ] Add environment variable overrides.
-- [ ] Add structured logging.
+- [x] Add `clap` CLI.
+- [x] Add config file loading.
+- [x] Add environment variable overrides.
+- [x] Add structured logging.
 - [ ] Create raw ICMP server backend.
 - [ ] Authenticate session handshake.
 - [ ] Enforce peer ACL.

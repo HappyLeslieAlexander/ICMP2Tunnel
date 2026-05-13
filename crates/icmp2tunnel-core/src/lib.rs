@@ -49,7 +49,10 @@ pub enum SessionState {
 
 #[derive(Debug)]
 pub enum SessionError {
-    InvalidTransition { from: SessionState, op: &'static str },
+    InvalidTransition {
+        from: SessionState,
+        op: &'static str,
+    },
     Proto(ProtoError),
     Timeout,
     Replay,
@@ -97,14 +100,22 @@ impl Cidr {
 }
 
 fn masked_eq_v4(a: Ipv4Addr, b: Ipv4Addr, prefix: u8) -> bool {
-    let mask = if prefix == 0 { 0 } else { u32::MAX << (32 - u32::from(prefix)) };
+    let mask = if prefix == 0 {
+        0
+    } else {
+        u32::MAX << (32 - u32::from(prefix))
+    };
     (u32::from(a) & mask) == (u32::from(b) & mask)
 }
 
 fn masked_eq_v6(a: Ipv6Addr, b: Ipv6Addr, prefix: u8) -> bool {
     let av = u128::from_be_bytes(a.octets());
     let bv = u128::from_be_bytes(b.octets());
-    let mask = if prefix == 0 { 0 } else { u128::MAX << (128 - u128::from(prefix)) };
+    let mask = if prefix == 0 {
+        0
+    } else {
+        u128::MAX << (128 - u128::from(prefix))
+    };
     (av & mask) == (bv & mask)
 }
 
@@ -122,7 +133,9 @@ impl PeerAcl {
         Ok(Self { allow })
     }
 
-    pub fn allows(&self, ip: IpAddr) -> bool { self.allow.iter().any(|r| r.contains(ip)) }
+    pub fn allows(&self, ip: IpAddr) -> bool {
+        self.allow.iter().any(|r| r.contains(ip))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -159,7 +172,10 @@ impl TargetAcl {
             };
             allow.push(TargetRule { host, port });
         }
-        Ok(Self { allow, deny_local: true })
+        Ok(Self {
+            allow,
+            deny_local: true,
+        })
     }
 
     pub fn allows_socket(&self, target: SocketAddr) -> bool {
@@ -199,7 +215,10 @@ impl TargetAcl {
 fn is_default_blocked_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
-            v4.is_loopback() || v4.is_link_local() || v4.octets() == [169, 254, 169, 254] || v4.octets() == [169, 254, 169, 253]
+            v4.is_loopback()
+                || v4.is_link_local()
+                || v4.octets() == [169, 254, 169, 254]
+                || v4.octets() == [169, 254, 169, 253]
         }
         IpAddr::V6(v6) => v6.is_loopback() || v6.is_unicast_link_local(),
     }
@@ -221,7 +240,12 @@ pub struct RateLimiter {
 
 impl RateLimiter {
     pub fn new(limits: RateLimits, now: Instant) -> Self {
-        Self { limits, window_start: now, packets: 0, bytes: 0 }
+        Self {
+            limits,
+            window_start: now,
+            packets: 0,
+            bytes: 0,
+        }
     }
 
     pub fn allow(&mut self, now: Instant, packet_bytes: u64) -> bool {
@@ -242,9 +266,10 @@ impl RateLimiter {
     }
 }
 
-
 impl From<ProtoError> for SessionError {
-    fn from(value: ProtoError) -> Self { Self::Proto(value) }
+    fn from(value: ProtoError) -> Self {
+        Self::Proto(value)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -257,14 +282,18 @@ pub struct SessionConfig {
     pub max_inflight_packets: usize,
 }
 
-
 impl Default for SessionConfig {
     fn default() -> Self {
-        Self { idle_timeout: Duration::from_secs(30), psk: b"dev-psk".to_vec(), salt: b"dev-salt".to_vec(), retransmit_timeout: Duration::from_millis(300), max_retransmissions: 5, max_inflight_packets: 128 }
+        Self {
+            idle_timeout: Duration::from_secs(30),
+            psk: b"dev-psk".to_vec(),
+            salt: b"dev-salt".to_vec(),
+            retransmit_timeout: Duration::from_millis(300),
+            max_retransmissions: 5,
+            max_inflight_packets: 128,
+        }
     }
 }
-
-
 
 #[derive(Debug, Clone)]
 struct RetransmitEntry {
@@ -291,7 +320,6 @@ pub struct Session {
     cwnd_packets: usize,
 }
 
-
 impl Session {
     #[must_use]
     pub fn new(id: SessionId, cfg: SessionConfig) -> Self {
@@ -314,33 +342,58 @@ impl Session {
 
     pub fn client_hello(&mut self) -> Result<MuxFrame, SessionError> {
         if self.state != SessionState::New {
-            return Err(SessionError::InvalidTransition { from: self.state, op: "client_hello" });
+            return Err(SessionError::InvalidTransition {
+                from: self.state,
+                op: "client_hello",
+            });
         }
         self.key = Some(derive_key(&self.cfg.psk, &self.cfg.salt)?);
         self.state = SessionState::HelloSent;
         self.touch();
-        Ok(MuxFrame { op: MuxOp::Hello, stream_id: 0, window: 0, body: self.id.0.to_be_bytes().to_vec() })
+        Ok(MuxFrame {
+            op: MuxOp::Hello,
+            stream_id: 0,
+            window: 0,
+            body: self.id.0.to_be_bytes().to_vec(),
+        })
     }
 
     pub fn server_hello_reply(&mut self, hello: &MuxFrame) -> Result<MuxFrame, SessionError> {
         if self.state != SessionState::New {
-            return Err(SessionError::InvalidTransition { from: self.state, op: "server_hello_reply" });
+            return Err(SessionError::InvalidTransition {
+                from: self.state,
+                op: "server_hello_reply",
+            });
         }
         if hello.op != MuxOp::Hello {
-            return Err(SessionError::InvalidTransition { from: self.state, op: "not_hello" });
+            return Err(SessionError::InvalidTransition {
+                from: self.state,
+                op: "not_hello",
+            });
         }
         self.key = Some(derive_key(&self.cfg.psk, &self.cfg.salt)?);
         self.state = SessionState::Established;
         self.touch();
-        Ok(MuxFrame { op: MuxOp::HelloReply, stream_id: 0, window: 0, body: b"ok".to_vec() })
+        Ok(MuxFrame {
+            op: MuxOp::HelloReply,
+            stream_id: 0,
+            window: 0,
+            body: b"ok".to_vec(),
+        })
     }
 
     pub fn client_on_hello_reply(&mut self, reply: &MuxFrame) -> Result<(), SessionError> {
         if self.state != SessionState::HelloSent {
-            return Err(SessionError::InvalidTransition { from: self.state, op: "client_on_hello_reply" });
+            return Err(SessionError::InvalidTransition {
+                from: self.state,
+                op: "client_on_hello_reply",
+            });
         }
         if reply.op != MuxOp::HelloReply {
-            return Err(SessionError::InvalidTransition { from: self.state, op: "not_hello_reply" });
+            return Err(SessionError::InvalidTransition {
+                from: self.state,
+                op: "not_hello_reply",
+            });
         }
         self.state = SessionState::Established;
         self.touch();
@@ -349,7 +402,10 @@ impl Session {
 
     pub fn allocate_packet_no(&mut self) -> Result<PacketNo, SessionError> {
         if self.state != SessionState::Established && self.state != SessionState::Draining {
-            return Err(SessionError::InvalidTransition { from: self.state, op: "allocate_packet_no" });
+            return Err(SessionError::InvalidTransition {
+                from: self.state,
+                op: "allocate_packet_no",
+            });
         }
         let pn = self.next_packet;
         self.next_packet.0 = self.next_packet.0.saturating_add(1);
@@ -359,17 +415,33 @@ impl Session {
 
     pub fn make_ack_frame(&mut self, acked: PacketNo) -> Result<MuxFrame, SessionError> {
         if self.state != SessionState::Established {
-            return Err(SessionError::InvalidTransition { from: self.state, op: "make_ack_frame" });
+            return Err(SessionError::InvalidTransition {
+                from: self.state,
+                op: "make_ack_frame",
+            });
         }
         self.touch();
-        Ok(MuxFrame { op: MuxOp::Ack, stream_id: 0, window: 0, body: acked.0.to_be_bytes().to_vec() })
+        Ok(MuxFrame {
+            op: MuxOp::Ack,
+            stream_id: 0,
+            window: 0,
+            body: acked.0.to_be_bytes().to_vec(),
+        })
     }
 
     pub fn process_ack_frame(&mut self, ack: &MuxFrame) -> Result<PacketNo, SessionError> {
         if ack.op != MuxOp::Ack || ack.body.len() != 8 {
-            return Err(SessionError::InvalidTransition { from: self.state, op: "process_ack_frame" });
+            return Err(SessionError::InvalidTransition {
+                from: self.state,
+                op: "process_ack_frame",
+            });
         }
-        let n = PacketNo(u64::from_be_bytes(ack.body.as_slice().try_into().map_err(|_| SessionError::Replay)?));
+        let n = PacketNo(u64::from_be_bytes(
+            ack.body
+                .as_slice()
+                .try_into()
+                .map_err(|_| SessionError::Replay)?,
+        ));
         if n <= self.highest_ack {
             return Err(SessionError::Replay);
         }
@@ -380,19 +452,26 @@ impl Session {
     }
 
     pub fn on_inbound_packet(&mut self, pn: PacketNo) -> Result<(), SessionError> {
-        self.replay.check_and_mark(pn.0).map_err(|_| SessionError::Replay)?;
+        self.replay
+            .check_and_mark(pn.0)
+            .map_err(|_| SessionError::Replay)?;
         self.touch();
         Ok(())
     }
 
     pub fn check_idle_timeout(&self, now: Instant) -> Result<(), SessionError> {
-        if now.duration_since(self.last_activity) > self.cfg.idle_timeout { return Err(SessionError::Timeout); }
+        if now.duration_since(self.last_activity) > self.cfg.idle_timeout {
+            return Err(SessionError::Timeout);
+        }
         Ok(())
     }
 
     pub fn start_draining(&mut self) -> Result<(), SessionError> {
         if self.state != SessionState::Established {
-            return Err(SessionError::InvalidTransition { from: self.state, op: "start_draining" });
+            return Err(SessionError::InvalidTransition {
+                from: self.state,
+                op: "start_draining",
+            });
         }
         self.state = SessionState::Draining;
         self.touch();
@@ -401,16 +480,26 @@ impl Session {
 
     pub fn graceful_shutdown(&mut self) -> Result<(), SessionError> {
         if self.state != SessionState::Draining && self.state != SessionState::Established {
-            return Err(SessionError::InvalidTransition { from: self.state, op: "graceful_shutdown" });
+            return Err(SessionError::InvalidTransition {
+                from: self.state,
+                op: "graceful_shutdown",
+            });
         }
         self.state = SessionState::Closed;
         self.touch();
         Ok(())
     }
 
-    fn touch(&mut self) { self.last_activity = Instant::now(); }
+    fn touch(&mut self) {
+        self.last_activity = Instant::now();
+    }
 
-    pub fn queue_reliable_frame(&mut self, pn: PacketNo, frame: MuxFrame, now: Instant) -> Result<(), SessionError> {
+    pub fn queue_reliable_frame(
+        &mut self,
+        pn: PacketNo,
+        frame: MuxFrame,
+        now: Instant,
+    ) -> Result<(), SessionError> {
         let limit = self.cfg.max_inflight_packets.min(self.cwnd_packets.max(1));
         if self.inflight.len() >= limit {
             return Err(SessionError::InflightFull);
@@ -429,7 +518,10 @@ impl Session {
         self.inflight.retain(|e| e.pn.0 > acked.0);
     }
 
-    pub fn poll_retransmit(&mut self, now: Instant) -> Result<Vec<(PacketNo, MuxFrame)>, SessionError> {
+    pub fn poll_retransmit(
+        &mut self,
+        now: Instant,
+    ) -> Result<Vec<(PacketNo, MuxFrame)>, SessionError> {
         let mut out = Vec::new();
         for e in &mut self.inflight {
             if now < e.deadline {
@@ -446,10 +538,13 @@ impl Session {
         Ok(out)
     }
 
-    pub fn inflight_count(&self) -> usize { self.inflight.len() }
+    pub fn inflight_count(&self) -> usize {
+        self.inflight.len()
+    }
 
-    pub fn set_cwnd_packets(&mut self, packets: usize) { self.cwnd_packets = packets.max(1); }
-
+    pub fn set_cwnd_packets(&mut self, packets: usize) {
+        self.cwnd_packets = packets.max(1);
+    }
 
     pub fn open_stream(&mut self, stream_id: StreamId) -> Result<MuxFrame, SessionError> {
         if self.streams.len() >= self.stream_limit {
@@ -466,39 +561,58 @@ impl Session {
         entry.state = StreamState::Opening;
         let window = entry.window;
         self.touch();
-        Ok(MuxFrame { op: MuxOp::Open, stream_id: stream_id.0, window, body: Vec::new() })
+        Ok(MuxFrame {
+            op: MuxOp::Open,
+            stream_id: stream_id.0,
+            window,
+            body: Vec::new(),
+        })
     }
 
     pub fn on_stream_frame(&mut self, frame: &MuxFrame) -> Result<Vec<u8>, SessionError> {
         match frame.op {
             MuxOp::Open => {
-                if self.streams.len() >= self.stream_limit && !self.streams.contains_key(&StreamId(frame.stream_id)) {
+                if self.streams.len() >= self.stream_limit
+                    && !self.streams.contains_key(&StreamId(frame.stream_id))
+                {
                     return Err(SessionError::StreamLimit);
                 }
-                let e = self.streams.entry(StreamId(frame.stream_id)).or_insert(StreamEntry {
-                    state: StreamState::Idle,
-                    send_off: 0,
-                    recv_off: 0,
-                    pending_ack: 0,
-                    window: frame.window,
-                    reorder: BTreeMap::new(),
-                });
+                let e = self
+                    .streams
+                    .entry(StreamId(frame.stream_id))
+                    .or_insert(StreamEntry {
+                        state: StreamState::Idle,
+                        send_off: 0,
+                        recv_off: 0,
+                        pending_ack: 0,
+                        window: frame.window,
+                        reorder: BTreeMap::new(),
+                    });
                 e.state = StreamState::Open;
                 Ok(Vec::new())
             }
             MuxOp::OpenOk => {
-                let e = self.streams.get_mut(&StreamId(frame.stream_id)).ok_or(SessionError::UnknownStream)?;
+                let e = self
+                    .streams
+                    .get_mut(&StreamId(frame.stream_id))
+                    .ok_or(SessionError::UnknownStream)?;
                 e.state = StreamState::Open;
                 Ok(Vec::new())
             }
             MuxOp::OpenErr => {
-                let e = self.streams.get_mut(&StreamId(frame.stream_id)).ok_or(SessionError::UnknownStream)?;
+                let e = self
+                    .streams
+                    .get_mut(&StreamId(frame.stream_id))
+                    .ok_or(SessionError::UnknownStream)?;
                 e.state = StreamState::Closed;
                 Ok(Vec::new())
             }
             MuxOp::Data => self.on_stream_data(frame),
             MuxOp::Fin => {
-                let e = self.streams.get_mut(&StreamId(frame.stream_id)).ok_or(SessionError::UnknownStream)?;
+                let e = self
+                    .streams
+                    .get_mut(&StreamId(frame.stream_id))
+                    .ok_or(SessionError::UnknownStream)?;
                 e.state = match e.state {
                     StreamState::Open => StreamState::RemoteHalfClosed,
                     StreamState::LocalHalfClosed => StreamState::Closed,
@@ -507,24 +621,39 @@ impl Session {
                 Ok(Vec::new())
             }
             MuxOp::Rst => {
-                let e = self.streams.get_mut(&StreamId(frame.stream_id)).ok_or(SessionError::UnknownStream)?;
+                let e = self
+                    .streams
+                    .get_mut(&StreamId(frame.stream_id))
+                    .ok_or(SessionError::UnknownStream)?;
                 e.state = StreamState::Closed;
                 e.reorder.clear();
                 Ok(Vec::new())
             }
             MuxOp::Ack => {
-                let e = self.streams.get_mut(&StreamId(frame.stream_id)).ok_or(SessionError::UnknownStream)?;
+                let e = self
+                    .streams
+                    .get_mut(&StreamId(frame.stream_id))
+                    .ok_or(SessionError::UnknownStream)?;
                 if frame.body.len() != 8 {
                     return Err(SessionError::StreamOffset);
                 }
-                let acked = u64::from_be_bytes(frame.body.as_slice().try_into().map_err(|_| SessionError::StreamOffset)?);
+                let acked = u64::from_be_bytes(
+                    frame
+                        .body
+                        .as_slice()
+                        .try_into()
+                        .map_err(|_| SessionError::StreamOffset)?,
+                );
                 if acked > e.send_off {
                     return Err(SessionError::StreamOffset);
                 }
                 Ok(Vec::new())
             }
             MuxOp::Window => {
-                let e = self.streams.get_mut(&StreamId(frame.stream_id)).ok_or(SessionError::UnknownStream)?;
+                let e = self
+                    .streams
+                    .get_mut(&StreamId(frame.stream_id))
+                    .ok_or(SessionError::UnknownStream)?;
                 e.window = frame.window;
                 Ok(Vec::new())
             }
@@ -536,11 +665,21 @@ impl Session {
         if frame.body.len() < 8 {
             return Err(SessionError::StreamOffset);
         }
-        let e = self.streams.get_mut(&StreamId(frame.stream_id)).ok_or(SessionError::UnknownStream)?;
-        if matches!(e.state, StreamState::Closed | StreamState::Idle | StreamState::Opening) {
+        let e = self
+            .streams
+            .get_mut(&StreamId(frame.stream_id))
+            .ok_or(SessionError::UnknownStream)?;
+        if matches!(
+            e.state,
+            StreamState::Closed | StreamState::Idle | StreamState::Opening
+        ) {
             return Err(SessionError::StreamClosed);
         }
-        let off = u64::from_be_bytes(frame.body[0..8].try_into().map_err(|_| SessionError::StreamOffset)?);
+        let off = u64::from_be_bytes(
+            frame.body[0..8]
+                .try_into()
+                .map_err(|_| SessionError::StreamOffset)?,
+        );
         let payload = frame.body[8..].to_vec();
         if off < e.recv_off {
             return Ok(Vec::new());
@@ -559,39 +698,79 @@ impl Session {
         Ok(out)
     }
 
-    pub fn stream_data_frame(&mut self, stream_id: StreamId, body: &[u8]) -> Result<MuxFrame, SessionError> {
-        let e = self.streams.get_mut(&stream_id).ok_or(SessionError::UnknownStream)?;
+    pub fn stream_data_frame(
+        &mut self,
+        stream_id: StreamId,
+        body: &[u8],
+    ) -> Result<MuxFrame, SessionError> {
+        let e = self
+            .streams
+            .get_mut(&stream_id)
+            .ok_or(SessionError::UnknownStream)?;
         if e.state != StreamState::Open && e.state != StreamState::RemoteHalfClosed {
             return Err(SessionError::StreamClosed);
         }
         let mut data = e.send_off.to_be_bytes().to_vec();
         data.extend_from_slice(body);
-        e.send_off = e.send_off.saturating_add(u64::try_from(body.len()).map_err(|_| SessionError::StreamOffset)?);
-        Ok(MuxFrame { op: MuxOp::Data, stream_id: stream_id.0, window: e.window, body: data })
+        e.send_off = e
+            .send_off
+            .saturating_add(u64::try_from(body.len()).map_err(|_| SessionError::StreamOffset)?);
+        Ok(MuxFrame {
+            op: MuxOp::Data,
+            stream_id: stream_id.0,
+            window: e.window,
+            body: data,
+        })
     }
 
     pub fn stream_ack_frame(&self, stream_id: StreamId) -> Result<MuxFrame, SessionError> {
-        let e = self.streams.get(&stream_id).ok_or(SessionError::UnknownStream)?;
-        Ok(MuxFrame { op: MuxOp::Ack, stream_id: stream_id.0, window: e.window, body: e.pending_ack.to_be_bytes().to_vec() })
+        let e = self
+            .streams
+            .get(&stream_id)
+            .ok_or(SessionError::UnknownStream)?;
+        Ok(MuxFrame {
+            op: MuxOp::Ack,
+            stream_id: stream_id.0,
+            window: e.window,
+            body: e.pending_ack.to_be_bytes().to_vec(),
+        })
     }
 
     pub fn stream_fin_frame(&mut self, stream_id: StreamId) -> Result<MuxFrame, SessionError> {
-        let e = self.streams.get_mut(&stream_id).ok_or(SessionError::UnknownStream)?;
+        let e = self
+            .streams
+            .get_mut(&stream_id)
+            .ok_or(SessionError::UnknownStream)?;
         e.state = match e.state {
             StreamState::Open => StreamState::LocalHalfClosed,
             StreamState::RemoteHalfClosed => StreamState::Closed,
             s => s,
         };
-        Ok(MuxFrame { op: MuxOp::Fin, stream_id: stream_id.0, window: e.window, body: Vec::new() })
+        Ok(MuxFrame {
+            op: MuxOp::Fin,
+            stream_id: stream_id.0,
+            window: e.window,
+            body: Vec::new(),
+        })
     }
 
     pub fn stream_rst_frame(&mut self, stream_id: StreamId) -> Result<MuxFrame, SessionError> {
-        let e = self.streams.get_mut(&stream_id).ok_or(SessionError::UnknownStream)?;
+        let e = self
+            .streams
+            .get_mut(&stream_id)
+            .ok_or(SessionError::UnknownStream)?;
         e.state = StreamState::Closed;
-        Ok(MuxFrame { op: MuxOp::Rst, stream_id: stream_id.0, window: e.window, body: Vec::new() })
+        Ok(MuxFrame {
+            op: MuxOp::Rst,
+            stream_id: stream_id.0,
+            window: e.window,
+            body: Vec::new(),
+        })
     }
 
-    pub fn stream_state(&self, stream_id: StreamId) -> Option<StreamState> { self.streams.get(&stream_id).map(|s| s.state) }
+    pub fn stream_state(&self, stream_id: StreamId) -> Option<StreamState> {
+        self.streams.get(&stream_id).map(|s| s.state)
+    }
 }
 
 #[cfg(test)]
@@ -605,7 +784,9 @@ mod tests {
 
         let hello = client.client_hello().expect("client hello");
         let reply = server.server_hello_reply(&hello).expect("hello reply");
-        client.client_on_hello_reply(&reply).expect("client accepts reply");
+        client
+            .client_on_hello_reply(&reply)
+            .expect("client accepts reply");
         assert_eq!(client.state, SessionState::Established);
         assert_eq!(server.state, SessionState::Established);
 
@@ -613,8 +794,12 @@ mod tests {
         let ack = server.make_ack_frame(pn1).expect("make ack");
         let _ = client.process_ack_frame(&ack).expect("process ack");
 
-        server.on_inbound_packet(PacketNo(10)).expect("first packet");
-        server.on_inbound_packet(PacketNo(11)).expect("second packet");
+        server
+            .on_inbound_packet(PacketNo(10))
+            .expect("first packet");
+        server
+            .on_inbound_packet(PacketNo(11))
+            .expect("second packet");
 
         client.start_draining().expect("start draining");
         client.graceful_shutdown().expect("shutdown");
@@ -624,31 +809,62 @@ mod tests {
     #[test]
     fn invalid_state_transitions_and_guards() {
         let mut s = Session::new(SessionId(2), SessionConfig::default());
-        assert!(matches!(s.allocate_packet_no(), Err(SessionError::InvalidTransition { .. })));
+        assert!(matches!(
+            s.allocate_packet_no(),
+            Err(SessionError::InvalidTransition { .. })
+        ));
 
-        let bad = MuxFrame { op: MuxOp::Ack, stream_id: 0, window: 0, body: vec![0; 8] };
-        assert!(matches!(s.client_on_hello_reply(&bad), Err(SessionError::InvalidTransition { .. })));
+        let bad = MuxFrame {
+            op: MuxOp::Ack,
+            stream_id: 0,
+            window: 0,
+            body: vec![0; 8],
+        };
+        assert!(matches!(
+            s.client_on_hello_reply(&bad),
+            Err(SessionError::InvalidTransition { .. })
+        ));
 
         let hello = s.client_hello().expect("hello");
-        assert!(matches!(s.client_hello(), Err(SessionError::InvalidTransition { .. })));
+        assert!(matches!(
+            s.client_hello(),
+            Err(SessionError::InvalidTransition { .. })
+        ));
 
         let mut server = Session::new(SessionId(2), SessionConfig::default());
         let _reply = server.server_hello_reply(&hello).expect("server reply");
-        assert!(matches!(server.server_hello_reply(&hello), Err(SessionError::InvalidTransition { .. })));
+        assert!(matches!(
+            server.server_hello_reply(&hello),
+            Err(SessionError::InvalidTransition { .. })
+        ));
 
-        server.on_inbound_packet(PacketNo(200)).expect("first inbound");
-        assert!(matches!(server.on_inbound_packet(PacketNo(200)), Err(SessionError::Replay)));
+        server
+            .on_inbound_packet(PacketNo(200))
+            .expect("first inbound");
+        assert!(matches!(
+            server.on_inbound_packet(PacketNo(200)),
+            Err(SessionError::Replay)
+        ));
 
         let too_old = PacketNo(1);
-        assert!(matches!(server.on_inbound_packet(too_old), Err(SessionError::Replay)));
+        assert!(matches!(
+            server.on_inbound_packet(too_old),
+            Err(SessionError::Replay)
+        ));
     }
 
     #[test]
     fn session_times_out_after_idle_timeout() {
-        let cfg = SessionConfig { idle_timeout: Duration::from_millis(1), ..SessionConfig::default() };
+        let cfg = SessionConfig {
+            idle_timeout: Duration::from_millis(1),
+            ..SessionConfig::default()
+        };
         let s = Session::new(SessionId(3), cfg);
         let now = Instant::now() + Duration::from_millis(10);
-        assert!(matches!(s.check_idle_timeout(now), Err(SessionError::Timeout)));
+        assert!(matches!(
+            s.check_idle_timeout(now),
+            Err(SessionError::Timeout)
+        ));
     }
 
     #[test]
@@ -660,8 +876,13 @@ mod tests {
         let sid = StreamId(7);
         let open = a.open_stream(sid).expect("open");
         b.on_stream_frame(&open).expect("recv open");
-        a.on_stream_frame(&MuxFrame { op: MuxOp::OpenOk, stream_id: sid.0, window: u32::MAX, body: Vec::new() })
-            .expect("open ok");
+        a.on_stream_frame(&MuxFrame {
+            op: MuxOp::OpenOk,
+            stream_id: sid.0,
+            window: u32::MAX,
+            body: Vec::new(),
+        })
+        .expect("open ok");
         let data = a.stream_data_frame(sid, b"abc").expect("data");
         let got = b.on_stream_frame(&data).expect("deliver");
         assert_eq!(got, b"abc");
@@ -677,13 +898,34 @@ mod tests {
         let mut s = Session::new(SessionId(1), SessionConfig::default());
         s.state = SessionState::Established;
         let sid = StreamId(9);
-        s.on_stream_frame(&MuxFrame { op: MuxOp::Open, stream_id: sid.0, window: 0, body: Vec::new() }).expect("open");
+        s.on_stream_frame(&MuxFrame {
+            op: MuxOp::Open,
+            stream_id: sid.0,
+            window: 0,
+            body: Vec::new(),
+        })
+        .expect("open");
         let mut o1 = 3_u64.to_be_bytes().to_vec();
         o1.extend_from_slice(b"def");
         let mut o0 = 0_u64.to_be_bytes().to_vec();
         o0.extend_from_slice(b"abc");
-        assert!(s.on_stream_frame(&MuxFrame { op: MuxOp::Data, stream_id: sid.0, window: 0, body: o1 }).expect("buffer").is_empty());
-        let delivered = s.on_stream_frame(&MuxFrame { op: MuxOp::Data, stream_id: sid.0, window: 0, body: o0 }).expect("flush");
+        assert!(s
+            .on_stream_frame(&MuxFrame {
+                op: MuxOp::Data,
+                stream_id: sid.0,
+                window: 0,
+                body: o1
+            })
+            .expect("buffer")
+            .is_empty());
+        let delivered = s
+            .on_stream_frame(&MuxFrame {
+                op: MuxOp::Data,
+                stream_id: sid.0,
+                window: 0,
+                body: o0,
+            })
+            .expect("flush");
         assert_eq!(delivered, b"abcdef");
     }
 
@@ -692,7 +934,13 @@ mod tests {
         let mut s = Session::new(SessionId(1), SessionConfig::default());
         s.state = SessionState::Established;
         let sid = StreamId(3);
-        s.on_stream_frame(&MuxFrame { op: MuxOp::Open, stream_id: sid.0, window: 0, body: Vec::new() }).expect("open");
+        s.on_stream_frame(&MuxFrame {
+            op: MuxOp::Open,
+            stream_id: sid.0,
+            window: 0,
+            body: Vec::new(),
+        })
+        .expect("open");
         let rst = s.stream_rst_frame(sid).expect("rst");
         s.on_stream_frame(&rst).expect("receive rst");
         assert_eq!(s.stream_state(sid), Some(StreamState::Closed));
@@ -705,10 +953,12 @@ mod tests {
         s.stream_limit = 2;
         s.open_stream(StreamId(1)).expect("s1");
         s.open_stream(StreamId(2)).expect("s2");
-        assert!(matches!(s.open_stream(StreamId(3)), Err(SessionError::StreamLimit)));
+        assert!(matches!(
+            s.open_stream(StreamId(3)),
+            Err(SessionError::StreamLimit)
+        ));
     }
 }
-
 
 #[cfg(test)]
 mod reliability_tests {
@@ -719,11 +969,22 @@ mod reliability_tests {
         let mut s = Session::new(SessionId(99), SessionConfig::default());
         s.state = SessionState::Established;
         let now = Instant::now();
-        let f = MuxFrame { op: MuxOp::Ping, stream_id: 0, window: 0, body: vec![] };
-        s.queue_reliable_frame(PacketNo(1), f.clone(), now).expect("queue");
+        let f = MuxFrame {
+            op: MuxOp::Ping,
+            stream_id: 0,
+            window: 0,
+            body: vec![],
+        };
+        s.queue_reliable_frame(PacketNo(1), f.clone(), now)
+            .expect("queue");
         assert_eq!(s.inflight_count(), 1);
-        assert!(s.poll_retransmit(now + Duration::from_millis(100)).expect("no due").is_empty());
-        let due = s.poll_retransmit(now + Duration::from_millis(350)).expect("due");
+        assert!(s
+            .poll_retransmit(now + Duration::from_millis(100))
+            .expect("no due")
+            .is_empty());
+        let due = s
+            .poll_retransmit(now + Duration::from_millis(350))
+            .expect("due");
         assert_eq!(due.len(), 1);
         assert_eq!(due[0].0, PacketNo(1));
         s.on_packet_acked(PacketNo(1));
@@ -732,13 +993,25 @@ mod reliability_tests {
 
     #[test]
     fn inflight_bound_enforced() {
-        let cfg = SessionConfig { max_inflight_packets: 1, ..SessionConfig::default() };
+        let cfg = SessionConfig {
+            max_inflight_packets: 1,
+            ..SessionConfig::default()
+        };
         let mut s = Session::new(SessionId(77), cfg);
         s.state = SessionState::Established;
         let now = Instant::now();
-        let f = MuxFrame { op: MuxOp::Ping, stream_id: 0, window: 0, body: vec![] };
-        s.queue_reliable_frame(PacketNo(1), f.clone(), now).expect("first");
-        assert!(matches!(s.queue_reliable_frame(PacketNo(2), f, now), Err(SessionError::InflightFull)));
+        let f = MuxFrame {
+            op: MuxOp::Ping,
+            stream_id: 0,
+            window: 0,
+            body: vec![],
+        };
+        s.queue_reliable_frame(PacketNo(1), f.clone(), now)
+            .expect("first");
+        assert!(matches!(
+            s.queue_reliable_frame(PacketNo(2), f, now),
+            Err(SessionError::InflightFull)
+        ));
     }
 }
 
@@ -756,9 +1029,18 @@ mod acl_and_rate_tests {
 
     #[test]
     fn target_acl_blocks_local_and_checks_resolved_ip() {
-        let acl = TargetAcl::parse(&["example.com:443", "198.51.100.0/24:443"]).expect("target acl");
-        assert!(acl.allows_domain_and_resolved_ip("example.com", "198.51.100.10".parse().expect("ip"), 443));
-        assert!(!acl.allows_domain_and_resolved_ip("example.com", "127.0.0.1".parse().expect("ip"), 443));
+        let acl =
+            TargetAcl::parse(&["example.com:443", "198.51.100.0/24:443"]).expect("target acl");
+        assert!(acl.allows_domain_and_resolved_ip(
+            "example.com",
+            "198.51.100.10".parse().expect("ip"),
+            443
+        ));
+        assert!(!acl.allows_domain_and_resolved_ip(
+            "example.com",
+            "127.0.0.1".parse().expect("ip"),
+            443
+        ));
         assert!(acl.allows_socket("198.51.100.5:443".parse().expect("sock")));
         assert!(!acl.allows_socket("169.254.169.254:443".parse().expect("sock")));
     }
@@ -766,7 +1048,13 @@ mod acl_and_rate_tests {
     #[test]
     fn rate_limiter_enforces_pps_and_bps() {
         let now = Instant::now();
-        let mut limiter = RateLimiter::new(RateLimits { packets_per_sec: 2, bytes_per_sec: 10 }, now);
+        let mut limiter = RateLimiter::new(
+            RateLimits {
+                packets_per_sec: 2,
+                bytes_per_sec: 10,
+            },
+            now,
+        );
         assert!(limiter.allow(now, 4));
         assert!(limiter.allow(now, 4));
         assert!(!limiter.allow(now, 1));
