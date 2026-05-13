@@ -420,7 +420,7 @@ icmp2tunnel-server
 
 ### Acceptance Criteria
 
-- [ ] Server starts with `examples/server.toml`.
+- [x] Server starts with `examples/server.toml`.
 - [ ] Server refuses missing auth config.
 - [ ] Server refuses missing target ACL.
 - [ ] Server accepts authenticated client over fake transport.
