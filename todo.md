@@ -247,40 +247,40 @@ Goal: support multiple logical byte streams over one ICMP session.
 
 ### Tasks
 
-- [ ] Define `StreamId`.
-- [ ] Define stream states:
-  - [ ] `Idle`
-  - [ ] `Opening`
-  - [ ] `Open`
-  - [ ] `LocalHalfClosed`
-  - [ ] `RemoteHalfClosed`
-  - [ ] `Closed`
-- [ ] Implement `OPEN`.
-- [ ] Implement `OPEN_OK`.
-- [ ] Implement `OPEN_ERR`.
-- [ ] Implement `DATA`.
-- [ ] Implement `FIN`.
-- [ ] Implement `RST`.
-- [ ] Implement per-stream send offset.
-- [ ] Implement per-stream receive offset.
-- [ ] Implement reorder buffer.
-- [ ] Implement per-stream ACK.
-- [ ] Implement stream-level window update.
-- [ ] Implement stream table.
-- [ ] Implement stream limit per session.
-- [ ] Add tests for one stream.
-- [ ] Add tests for many concurrent streams.
-- [ ] Add tests for stream reset.
-- [ ] Add tests for half-close behavior.
+- [x] Define `StreamId`.
+- [x] Define stream states:
+  - [x] `Idle`
+  - [x] `Opening`
+  - [x] `Open`
+  - [x] `LocalHalfClosed`
+  - [x] `RemoteHalfClosed`
+  - [x] `Closed`
+- [x] Implement `OPEN`.
+- [x] Implement `OPEN_OK`.
+- [x] Implement `OPEN_ERR`.
+- [x] Implement `DATA`.
+- [x] Implement `FIN`.
+- [x] Implement `RST`.
+- [x] Implement per-stream send offset.
+- [x] Implement per-stream receive offset.
+- [x] Implement reorder buffer.
+- [x] Implement per-stream ACK.
+- [x] Implement stream-level window update.
+- [x] Implement stream table.
+- [x] Implement stream limit per session.
+- [x] Add tests for one stream.
+- [x] Add tests for many concurrent streams.
+- [x] Add tests for stream reset.
+- [x] Add tests for half-close behavior.
 
 ### Acceptance Criteria
 
-- [ ] One stream can transfer ordered bytes.
-- [ ] Multiple streams can transfer concurrently.
-- [ ] Reordered frames are delivered in order.
-- [ ] Duplicate frames are ignored.
-- [ ] Stream reset is propagated to the peer.
-- [ ] Half-close is propagated correctly.
+- [x] One stream can transfer ordered bytes.
+- [x] Multiple streams can transfer concurrently.
+- [x] Reordered frames are delivered in order.
+- [x] Duplicate frames are ignored.
+- [x] Stream reset is propagated to the peer.
+- [x] Half-close is propagated correctly.
 
 ---
 
@@ -290,31 +290,31 @@ Goal: make the tunnel tolerate ICMP packet loss, duplication, and reordering.
 
 ### Tasks
 
-- [ ] Implement retransmission queue.
-- [ ] Implement retransmission timeout.
-- [ ] Implement RTO backoff.
-- [ ] Implement maximum retransmission count.
-- [ ] Implement bounded inflight packets.
-- [ ] Implement packet-level ACK.
-- [ ] Implement stream-level ACK.
-- [ ] Implement flow-control window.
-- [ ] Implement client poll scheduler.
-- [ ] Implement empty poll packet.
-- [ ] Implement downstream delivery in Echo Reply.
-- [ ] Implement backpressure from local TCP to tunnel.
-- [ ] Implement backpressure from tunnel to local TCP.
-- [ ] Add integration test with loss.
-- [ ] Add integration test with reordering.
-- [ ] Add integration test with duplication.
-- [ ] Add integration test with delayed replies.
+- [x] Implement retransmission queue.
+- [x] Implement retransmission timeout.
+- [x] Implement RTO backoff.
+- [x] Implement maximum retransmission count.
+- [x] Implement bounded inflight packets.
+- [x] Implement packet-level ACK.
+- [x] Implement stream-level ACK.
+- [x] Implement flow-control window.
+- [x] Implement client poll scheduler.
+- [x] Implement empty poll packet.
+- [x] Implement downstream delivery in Echo Reply.
+- [x] Implement backpressure from local TCP to tunnel.
+- [x] Implement backpressure from tunnel to local TCP.
+- [x] Add integration test with loss.
+- [x] Add integration test with reordering.
+- [x] Add integration test with duplication.
+- [x] Add integration test with delayed replies.
 
 ### Acceptance Criteria
 
-- [ ] End-to-end TCP echo works over fake transport with packet loss.
-- [ ] End-to-end TCP echo works over fake transport with reordering.
-- [ ] End-to-end TCP echo works over fake transport with duplicates.
-- [ ] Memory usage remains bounded under stalled peer conditions.
-- [ ] Inflight packet count never exceeds configured limit.
+- [x] End-to-end TCP echo works over fake transport with packet loss.
+- [x] End-to-end TCP echo works over fake transport with reordering.
+- [x] End-to-end TCP echo works over fake transport with duplicates.
+- [x] Memory usage remains bounded under stalled peer conditions.
+- [x] Inflight packet count never exceeds configured limit.
 
 ---
 
@@ -782,7 +782,7 @@ Use this order unless there is a strong reason to change it:
 11. Server binary
 12. GNU/Linux backend
 13. [x] FreeBSD backend
-14. Windows client backend
+14. [x] Windows client backend
 15. XNU/Darwin client backend
 16. End-to-end MVP
 17. Packaging
