@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 #![deny(warnings)]
 
+#[cfg(target_os = "linux")]
+pub mod linux;
+
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
