@@ -137,30 +137,30 @@ crates/icmp2tunnel-socks
 
 ### Tasks
 
-- [ ] Implement SOCKS5 method negotiation parser.
-- [ ] Support `NO AUTHENTICATION REQUIRED` for loopback use.
-- [ ] Reject unsupported authentication methods.
-- [ ] Implement SOCKS5 request parser.
-- [ ] Support `CONNECT`.
-- [ ] Support IPv4 target addresses.
-- [ ] Support IPv6 target addresses.
-- [ ] Support domain-name target addresses.
-- [ ] Reject `BIND`.
-- [ ] Reject `UDP ASSOCIATE` in MVP.
-- [ ] Implement SOCKS5 success reply.
-- [ ] Implement SOCKS5 failure replies.
-- [ ] Add local listener helper.
-- [ ] Add parser unit tests.
-- [ ] Add integration test with local TCP echo server.
+- [x] Implement SOCKS5 method negotiation parser.
+- [x] Support `NO AUTHENTICATION REQUIRED` for loopback use.
+- [x] Reject unsupported authentication methods.
+- [x] Implement SOCKS5 request parser.
+- [x] Support `CONNECT`.
+- [x] Support IPv4 target addresses.
+- [x] Support IPv6 target addresses.
+- [x] Support domain-name target addresses.
+- [x] Reject `BIND`.
+- [x] Reject `UDP ASSOCIATE` in MVP.
+- [x] Implement SOCKS5 success reply.
+- [x] Implement SOCKS5 failure replies.
+- [x] Add local listener helper.
+- [x] Add parser unit tests.
+- [x] Add integration test with local TCP echo server.
 
 ### Acceptance Criteria
 
-- [ ] `cargo test -p icmp2tunnel-socks` passes.
-- [ ] `CONNECT` request can be parsed into a target address.
-- [ ] Invalid SOCKS versions are rejected.
-- [ ] Unsupported commands receive correct failure reply.
-- [ ] Listener binds to `127.0.0.1` by default.
-- [ ] Listener does not bind to `0.0.0.0` unless explicitly configured.
+- [x] `cargo test -p icmp2tunnel-socks` passes.
+- [x] `CONNECT` request can be parsed into a target address.
+- [x] Invalid SOCKS versions are rejected.
+- [x] Unsupported commands receive correct failure reply.
+- [x] Listener binds to `127.0.0.1` by default.
+- [x] Listener does not bind to `0.0.0.0` unless explicitly configured.
 
 ---
 
@@ -177,25 +177,25 @@ crates/icmp2tunnel-core
 
 ### Tasks
 
-- [ ] Define `ClientIcmp` trait.
-- [ ] Define `ServerIcmp` trait.
-- [ ] Define `InboundEcho`.
-- [ ] Define `ReplyToken`.
-- [ ] Implement fake in-memory client transport.
-- [ ] Implement fake in-memory server transport.
-- [ ] Add packet loss simulation.
-- [ ] Add packet duplication simulation.
-- [ ] Add packet reordering simulation.
-- [ ] Add artificial latency simulation.
-- [ ] Add test-only deterministic scheduler.
+- [x] Define `ClientIcmp` trait.
+- [x] Define `ServerIcmp` trait.
+- [x] Define `InboundEcho`.
+- [x] Define `ReplyToken`.
+- [x] Implement fake in-memory client transport.
+- [x] Implement fake in-memory server transport.
+- [x] Add packet loss simulation.
+- [x] Add packet duplication simulation.
+- [x] Add packet reordering simulation.
+- [x] Add artificial latency simulation.
+- [x] Add test-only deterministic scheduler.
 
 ### Acceptance Criteria
 
-- [ ] Client and server can exchange fake ICMP payloads.
-- [ ] Fake transport can simulate packet loss.
-- [ ] Fake transport can simulate reordering.
-- [ ] Fake transport can simulate duplicates.
-- [ ] Fake transport enables deterministic integration tests.
+- [x] Client and server can exchange fake ICMP payloads.
+- [x] Fake transport can simulate packet loss.
+- [x] Fake transport can simulate reordering.
+- [x] Fake transport can simulate duplicates.
+- [x] Fake transport enables deterministic integration tests.
 
 ---
 
@@ -211,33 +211,33 @@ crates/icmp2tunnel-core
 
 ### Tasks
 
-- [ ] Define `SessionId`.
-- [ ] Define `PacketNo`.
-- [ ] Define session states:
-  - [ ] `New`
-  - [ ] `HelloSent`
-  - [ ] `Established`
-  - [ ] `Draining`
-  - [ ] `Closed`
-- [ ] Implement client `HELLO`.
-- [ ] Implement server `HELLO_REPLY`.
-- [ ] Implement session key derivation.
-- [ ] Implement packet number allocation.
-- [ ] Implement ACK generation.
-- [ ] Implement ACK processing.
-- [ ] Implement replay protection integration.
-- [ ] Implement idle timeout.
-- [ ] Implement graceful shutdown.
-- [ ] Add unit tests for valid state transitions.
-- [ ] Add unit tests for invalid state transitions.
+- [x] Define `SessionId`.
+- [x] Define `PacketNo`.
+- [x] Define session states:
+  - [x] `New`
+  - [x] `HelloSent`
+  - [x] `Established`
+  - [x] `Draining`
+  - [x] `Closed`
+- [x] Implement client `HELLO`.
+- [x] Implement server `HELLO_REPLY`.
+- [x] Implement session key derivation.
+- [x] Implement packet number allocation.
+- [x] Implement ACK generation.
+- [x] Implement ACK processing.
+- [x] Implement replay protection integration.
+- [x] Implement idle timeout.
+- [x] Implement graceful shutdown.
+- [x] Add unit tests for valid state transitions.
+- [x] Add unit tests for invalid state transitions.
 
 ### Acceptance Criteria
 
-- [ ] Client can establish a session with server over fake transport.
-- [ ] Duplicate packets are rejected.
-- [ ] Out-of-window packets are rejected.
-- [ ] Session times out after configured idle timeout.
-- [ ] Invalid state transitions are rejected.
+- [x] Client can establish a session with server over fake transport.
+- [x] Duplicate packets are rejected.
+- [x] Out-of-window packets are rejected.
+- [x] Session times out after configured idle timeout.
+- [x] Invalid state transitions are rejected.
 
 ---
 
