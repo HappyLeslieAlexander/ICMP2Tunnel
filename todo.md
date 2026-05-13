@@ -443,11 +443,11 @@ crates/icmp2tunnel-transport/src/linux.rs
 ### Tasks
 
 - [ ] Implement raw ICMP server socket.
-- [ ] Implement ICMP Echo Request parsing.
-- [ ] Implement ICMP Echo Reply construction.
-- [ ] Preserve request identifier and sequence in replies.
-- [ ] Parse IPv4 header on receive.
-- [ ] Calculate ICMP checksum.
+- [x] Implement ICMP Echo Request parsing.
+- [x] Implement ICMP Echo Reply construction.
+- [x] Preserve request identifier and sequence in replies.
+- [x] Parse IPv4 header on receive.
+- [x] Calculate ICMP checksum.
 - [ ] Implement nonblocking socket integration.
 - [ ] Implement Tokio `AsyncFd` wrapper.
 - [ ] Implement GNU/Linux datagram ICMP client if available.
@@ -485,8 +485,8 @@ crates/icmp2tunnel-transport/src/freebsd.rs
 - [ ] Parse ICMP header.
 - [ ] Construct Echo Request.
 - [ ] Construct Echo Reply.
-- [ ] Preserve request identifier and sequence in replies.
-- [ ] Calculate ICMP checksum.
+- [x] Preserve request identifier and sequence in replies.
+- [x] Calculate ICMP checksum.
 - [ ] Implement nonblocking socket integration.
 - [ ] Implement Tokio `AsyncFd` wrapper.
 - [ ] Detect missing root privileges.
