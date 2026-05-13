@@ -4,6 +4,9 @@
 #[cfg(target_os = "linux")]
 pub mod linux;
 
+#[cfg(target_os = "freebsd")]
+pub mod freebsd;
+
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;

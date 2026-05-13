@@ -781,7 +781,7 @@ Use this order unless there is a strong reason to change it:
 10. Client binary
 11. Server binary
 12. GNU/Linux backend
-13. FreeBSD backend
+13. [x] FreeBSD backend
 14. Windows client backend
 15. XNU/Darwin client backend
 16. End-to-end MVP
