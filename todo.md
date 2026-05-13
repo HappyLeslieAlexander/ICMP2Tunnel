@@ -137,30 +137,30 @@ crates/icmp2tunnel-socks
 
 ### Tasks
 
-- [ ] Implement SOCKS5 method negotiation parser.
-- [ ] Support `NO AUTHENTICATION REQUIRED` for loopback use.
-- [ ] Reject unsupported authentication methods.
-- [ ] Implement SOCKS5 request parser.
-- [ ] Support `CONNECT`.
-- [ ] Support IPv4 target addresses.
-- [ ] Support IPv6 target addresses.
-- [ ] Support domain-name target addresses.
-- [ ] Reject `BIND`.
-- [ ] Reject `UDP ASSOCIATE` in MVP.
-- [ ] Implement SOCKS5 success reply.
-- [ ] Implement SOCKS5 failure replies.
-- [ ] Add local listener helper.
-- [ ] Add parser unit tests.
-- [ ] Add integration test with local TCP echo server.
+- [x] Implement SOCKS5 method negotiation parser.
+- [x] Support `NO AUTHENTICATION REQUIRED` for loopback use.
+- [x] Reject unsupported authentication methods.
+- [x] Implement SOCKS5 request parser.
+- [x] Support `CONNECT`.
+- [x] Support IPv4 target addresses.
+- [x] Support IPv6 target addresses.
+- [x] Support domain-name target addresses.
+- [x] Reject `BIND`.
+- [x] Reject `UDP ASSOCIATE` in MVP.
+- [x] Implement SOCKS5 success reply.
+- [x] Implement SOCKS5 failure replies.
+- [x] Add local listener helper.
+- [x] Add parser unit tests.
+- [x] Add integration test with local TCP echo server.
 
 ### Acceptance Criteria
 
-- [ ] `cargo test -p icmp2tunnel-socks` passes.
-- [ ] `CONNECT` request can be parsed into a target address.
-- [ ] Invalid SOCKS versions are rejected.
-- [ ] Unsupported commands receive correct failure reply.
-- [ ] Listener binds to `127.0.0.1` by default.
-- [ ] Listener does not bind to `0.0.0.0` unless explicitly configured.
+- [x] `cargo test -p icmp2tunnel-socks` passes.
+- [x] `CONNECT` request can be parsed into a target address.
+- [x] Invalid SOCKS versions are rejected.
+- [x] Unsupported commands receive correct failure reply.
+- [x] Listener binds to `127.0.0.1` by default.
+- [x] Listener does not bind to `0.0.0.0` unless explicitly configured.
 
 ---
 
@@ -177,25 +177,25 @@ crates/icmp2tunnel-core
 
 ### Tasks
 
-- [ ] Define `ClientIcmp` trait.
-- [ ] Define `ServerIcmp` trait.
-- [ ] Define `InboundEcho`.
-- [ ] Define `ReplyToken`.
-- [ ] Implement fake in-memory client transport.
-- [ ] Implement fake in-memory server transport.
-- [ ] Add packet loss simulation.
-- [ ] Add packet duplication simulation.
-- [ ] Add packet reordering simulation.
-- [ ] Add artificial latency simulation.
-- [ ] Add test-only deterministic scheduler.
+- [x] Define `ClientIcmp` trait.
+- [x] Define `ServerIcmp` trait.
+- [x] Define `InboundEcho`.
+- [x] Define `ReplyToken`.
+- [x] Implement fake in-memory client transport.
+- [x] Implement fake in-memory server transport.
+- [x] Add packet loss simulation.
+- [x] Add packet duplication simulation.
+- [x] Add packet reordering simulation.
+- [x] Add artificial latency simulation.
+- [x] Add test-only deterministic scheduler.
 
 ### Acceptance Criteria
 
-- [ ] Client and server can exchange fake ICMP payloads.
-- [ ] Fake transport can simulate packet loss.
-- [ ] Fake transport can simulate reordering.
-- [ ] Fake transport can simulate duplicates.
-- [ ] Fake transport enables deterministic integration tests.
+- [x] Client and server can exchange fake ICMP payloads.
+- [x] Fake transport can simulate packet loss.
+- [x] Fake transport can simulate reordering.
+- [x] Fake transport can simulate duplicates.
+- [x] Fake transport enables deterministic integration tests.
 
 ---
 

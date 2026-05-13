@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/icmp2tunnel", "crates/icmp2tunnel-proto"]
+members = ["crates/icmp2tunnel", "crates/icmp2tunnel-proto", "crates/icmp2tunnel-socks", "crates/icmp2tunnel-transport", "crates/icmp2tunnel-core"]
 resolver = "2"
 exclude = ["fuzz"]
 
