@@ -177,25 +177,25 @@ crates/icmp2tunnel-core
 
 ### Tasks
 
-- [ ] Define `ClientIcmp` trait.
-- [ ] Define `ServerIcmp` trait.
-- [ ] Define `InboundEcho`.
-- [ ] Define `ReplyToken`.
-- [ ] Implement fake in-memory client transport.
-- [ ] Implement fake in-memory server transport.
-- [ ] Add packet loss simulation.
-- [ ] Add packet duplication simulation.
-- [ ] Add packet reordering simulation.
-- [ ] Add artificial latency simulation.
-- [ ] Add test-only deterministic scheduler.
+- [x] Define `ClientIcmp` trait.
+- [x] Define `ServerIcmp` trait.
+- [x] Define `InboundEcho`.
+- [x] Define `ReplyToken`.
+- [x] Implement fake in-memory client transport.
+- [x] Implement fake in-memory server transport.
+- [x] Add packet loss simulation.
+- [x] Add packet duplication simulation.
+- [x] Add packet reordering simulation.
+- [x] Add artificial latency simulation.
+- [x] Add test-only deterministic scheduler.
 
 ### Acceptance Criteria
 
-- [ ] Client and server can exchange fake ICMP payloads.
-- [ ] Fake transport can simulate packet loss.
-- [ ] Fake transport can simulate reordering.
-- [ ] Fake transport can simulate duplicates.
-- [ ] Fake transport enables deterministic integration tests.
+- [x] Client and server can exchange fake ICMP payloads.
+- [x] Fake transport can simulate packet loss.
+- [x] Fake transport can simulate reordering.
+- [x] Fake transport can simulate duplicates.
+- [x] Fake transport enables deterministic integration tests.
 
 ---
 
