@@ -1,0 +1,12 @@
+listen_addr = "127.0.0.1:1080"
+server_addr = "203.0.113.10"
+psk = "replace-with-a-long-random-psk"
+salt = "icmp2tunnel-v1-lab"
+log_level = "info"
+allow_non_loopback = false
+poll_interval_ms = 20
+request_timeout_ms = 1000
+retries = 3
+max_payload = 900
+# Optional fixed ICMP identifier; default derives from process id.
+# icmp_identifier = 4242
