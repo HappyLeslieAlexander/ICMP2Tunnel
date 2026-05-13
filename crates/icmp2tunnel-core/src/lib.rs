@@ -3,6 +3,7 @@
 
 use std::{
     collections::{BTreeMap, VecDeque},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     time::{Duration, Instant},
 };
 
@@ -58,6 +59,187 @@ pub enum SessionError {
     StreamOffset,
     InflightFull,
     TooManyRetransmissions,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AclError {
+    InvalidPeerRule,
+    InvalidTargetRule,
+    InvalidCidr,
+    MissingPort,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Cidr {
+    base: IpAddr,
+    prefix: u8,
+}
+
+impl Cidr {
+    fn parse(input: &str) -> Result<Self, AclError> {
+        let (ip, prefix) = input.split_once('/').ok_or(AclError::InvalidCidr)?;
+        let base: IpAddr = ip.parse().map_err(|_| AclError::InvalidCidr)?;
+        let prefix: u8 = prefix.parse().map_err(|_| AclError::InvalidCidr)?;
+        let max = if base.is_ipv4() { 32 } else { 128 };
+        if prefix > max {
+            return Err(AclError::InvalidCidr);
+        }
+        Ok(Self { base, prefix })
+    }
+
+    fn contains(&self, ip: IpAddr) -> bool {
+        match (self.base, ip) {
+            (IpAddr::V4(base), IpAddr::V4(ip)) => masked_eq_v4(base, ip, self.prefix),
+            (IpAddr::V6(base), IpAddr::V6(ip)) => masked_eq_v6(base, ip, self.prefix),
+            _ => false,
+        }
+    }
+}
+
+fn masked_eq_v4(a: Ipv4Addr, b: Ipv4Addr, prefix: u8) -> bool {
+    let mask = if prefix == 0 { 0 } else { u32::MAX << (32 - u32::from(prefix)) };
+    (u32::from(a) & mask) == (u32::from(b) & mask)
+}
+
+fn masked_eq_v6(a: Ipv6Addr, b: Ipv6Addr, prefix: u8) -> bool {
+    let av = u128::from_be_bytes(a.octets());
+    let bv = u128::from_be_bytes(b.octets());
+    let mask = if prefix == 0 { 0 } else { u128::MAX << (128 - u128::from(prefix)) };
+    (av & mask) == (bv & mask)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PeerAcl {
+    allow: Vec<Cidr>,
+}
+
+impl PeerAcl {
+    pub fn parse(rules: &[&str]) -> Result<Self, AclError> {
+        let mut allow = Vec::with_capacity(rules.len());
+        for rule in rules {
+            allow.push(Cidr::parse(rule).map_err(|_| AclError::InvalidPeerRule)?);
+        }
+        Ok(Self { allow })
+    }
+
+    pub fn allows(&self, ip: IpAddr) -> bool { self.allow.iter().any(|r| r.contains(ip)) }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum HostRule {
+    Ip(IpAddr),
+    Cidr(Cidr),
+    Domain(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TargetRule {
+    host: HostRule,
+    port: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TargetAcl {
+    allow: Vec<TargetRule>,
+    deny_local: bool,
+}
+
+impl TargetAcl {
+    pub fn parse(rules: &[&str]) -> Result<Self, AclError> {
+        let mut allow = Vec::with_capacity(rules.len());
+        for rule in rules {
+            let (host, port) = rule.rsplit_once(':').ok_or(AclError::MissingPort)?;
+            let port = port.parse().map_err(|_| AclError::InvalidTargetRule)?;
+            let host = if host.contains('/') {
+                HostRule::Cidr(Cidr::parse(host).map_err(|_| AclError::InvalidTargetRule)?)
+            } else if let Ok(ip) = host.parse::<IpAddr>() {
+                HostRule::Ip(ip)
+            } else {
+                HostRule::Domain(host.to_ascii_lowercase())
+            };
+            allow.push(TargetRule { host, port });
+        }
+        Ok(Self { allow, deny_local: true })
+    }
+
+    pub fn allows_socket(&self, target: SocketAddr) -> bool {
+        if self.deny_local && is_default_blocked_ip(target.ip()) {
+            return false;
+        }
+        self.allow.iter().any(|r| {
+            if r.port != target.port() {
+                return false;
+            }
+            match &r.host {
+                HostRule::Ip(ip) => *ip == target.ip(),
+                HostRule::Cidr(c) => c.contains(target.ip()),
+                HostRule::Domain(_) => false,
+            }
+        })
+    }
+
+    pub fn allows_domain_and_resolved_ip(&self, domain: &str, resolved: IpAddr, port: u16) -> bool {
+        if self.deny_local && is_default_blocked_ip(resolved) {
+            return false;
+        }
+        let d = domain.to_ascii_lowercase();
+        self.allow.iter().any(|r| {
+            if r.port != port {
+                return false;
+            }
+            match &r.host {
+                HostRule::Domain(rule) => rule == &d,
+                HostRule::Ip(ip) => *ip == resolved,
+                HostRule::Cidr(c) => c.contains(resolved),
+            }
+        })
+    }
+}
+
+fn is_default_blocked_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            v4.is_loopback() || v4.is_link_local() || v4.octets() == [169, 254, 169, 254] || v4.octets() == [169, 254, 169, 253]
+        }
+        IpAddr::V6(v6) => v6.is_loopback() || v6.is_unicast_link_local(),
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RateLimits {
+    pub packets_per_sec: u64,
+    pub bytes_per_sec: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct RateLimiter {
+    limits: RateLimits,
+    window_start: Instant,
+    packets: u64,
+    bytes: u64,
+}
+
+impl RateLimiter {
+    pub fn new(limits: RateLimits, now: Instant) -> Self {
+        Self { limits, window_start: now, packets: 0, bytes: 0 }
+    }
+
+    pub fn allow(&mut self, now: Instant, packet_bytes: u64) -> bool {
+        if now.duration_since(self.window_start) >= Duration::from_secs(1) {
+            self.window_start = now;
+            self.packets = 0;
+            self.bytes = 0;
+        }
+        if self.packets.saturating_add(1) > self.limits.packets_per_sec {
+            return false;
+        }
+        if self.bytes.saturating_add(packet_bytes) > self.limits.bytes_per_sec {
+            return false;
+        }
+        self.packets = self.packets.saturating_add(1);
+        self.bytes = self.bytes.saturating_add(packet_bytes);
+        true
+    }
 }
 
 
@@ -557,5 +739,39 @@ mod reliability_tests {
         let f = MuxFrame { op: MuxOp::Ping, stream_id: 0, window: 0, body: vec![] };
         s.queue_reliable_frame(PacketNo(1), f.clone(), now).expect("first");
         assert!(matches!(s.queue_reliable_frame(PacketNo(2), f, now), Err(SessionError::InflightFull)));
+    }
+}
+
+#[cfg(test)]
+mod acl_and_rate_tests {
+    use super::*;
+
+    #[test]
+    fn peer_acl_cidr_match() {
+        let acl = PeerAcl::parse(&["192.168.1.0/24", "2001:db8::/32"]).expect("parse peer acl");
+        assert!(acl.allows("192.168.1.8".parse().expect("ip")));
+        assert!(acl.allows("2001:db8::1".parse().expect("ip")));
+        assert!(!acl.allows("10.0.0.1".parse().expect("ip")));
+    }
+
+    #[test]
+    fn target_acl_blocks_local_and_checks_resolved_ip() {
+        let acl = TargetAcl::parse(&["example.com:443", "198.51.100.0/24:443"]).expect("target acl");
+        assert!(acl.allows_domain_and_resolved_ip("example.com", "198.51.100.10".parse().expect("ip"), 443));
+        assert!(!acl.allows_domain_and_resolved_ip("example.com", "127.0.0.1".parse().expect("ip"), 443));
+        assert!(acl.allows_socket("198.51.100.5:443".parse().expect("sock")));
+        assert!(!acl.allows_socket("169.254.169.254:443".parse().expect("sock")));
+    }
+
+    #[test]
+    fn rate_limiter_enforces_pps_and_bps() {
+        let now = Instant::now();
+        let mut limiter = RateLimiter::new(RateLimits { packets_per_sec: 2, bytes_per_sec: 10 }, now);
+        assert!(limiter.allow(now, 4));
+        assert!(limiter.allow(now, 4));
+        assert!(!limiter.allow(now, 1));
+        let t1 = now + Duration::from_secs(1);
+        assert!(limiter.allow(t1, 10));
+        assert!(!limiter.allow(t1, 1));
     }
 }
