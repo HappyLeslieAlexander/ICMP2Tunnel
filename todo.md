@@ -12,32 +12,32 @@ Goal: create a clean Rust workspace that can compile and test before any ICMP-sp
 
 ### Tasks
 
-- [ ] Create root Rust workspace.
-- [ ] Add `README.md`.
-- [ ] Add `framework.md`.
-- [ ] Add `todo.md`.
-- [ ] Add `LICENSE-MIT`.
-- [ ] Add `LICENSE-APACHE`.
-- [ ] Add `SECURITY.md`.
-- [ ] Add `ACCEPTABLE_USE.md`.
-- [ ] Add `rust-toolchain.toml`.
-- [ ] Add `deny.toml`.
-- [ ] Add `.gitignore`.
-- [ ] Add `.github/workflows/ci.yml`.
-- [ ] Add `.github/workflows/audit.yml`.
-- [ ] Add `.github/workflows/release.yml`.
-- [ ] Create `docs/` directory.
-- [ ] Create `examples/` directory.
-- [ ] Create `crates/` directory.
-- [ ] Create `tests/` directory.
-- [ ] Create `fuzz/` directory.
-- [ ] Create `packaging/` directory.
+- [x] Create root Rust workspace.
+- [x] Add `README.md`.
+- [x] Add `framework.md`.
+- [x] Add `todo.md`.
+- [x] Add `LICENSE-MIT`.
+- [x] Add `LICENSE-APACHE`.
+- [x] Add `SECURITY.md`.
+- [x] Add `ACCEPTABLE_USE.md`.
+- [x] Add `rust-toolchain.toml`.
+- [x] Add `deny.toml`.
+- [x] Add `.gitignore`.
+- [x] Add `.github/workflows/ci.yml`.
+- [x] Add `.github/workflows/audit.yml`.
+- [x] Add `.github/workflows/release.yml`.
+- [x] Create `docs/` directory.
+- [x] Create `examples/` directory.
+- [x] Create `crates/` directory.
+- [x] Create `tests/` directory.
+- [x] Create `fuzz/` directory.
+- [x] Create `packaging/` directory.
 
 ### Acceptance Criteria
 
-- [ ] `cargo fmt --check` passes.
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` passes.
-- [ ] `cargo test --workspace` passes.
+- [x] `cargo fmt --check` passes.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` passes.
+- [x] `cargo test --workspace` passes.
 - [ ] `cargo deny check` passes.
 
 ---
@@ -54,52 +54,52 @@ crates/icmp2tunnel-proto
 
 ### Tasks
 
-- [ ] Define protocol magic value: `I2T1`.
-- [ ] Define protocol version: `1`.
-- [ ] Define plain ICMP payload header.
-- [ ] Implement header encoding.
-- [ ] Implement header decoding.
-- [ ] Implement strict header validation.
-- [ ] Define packet flags.
-- [ ] Define packet direction bits.
-- [ ] Define encrypted mux frame format.
-- [ ] Implement mux frame encoding.
-- [ ] Implement mux frame decoding.
-- [ ] Define mux operations:
-  - [ ] `HELLO`
-  - [ ] `HELLO_REPLY`
-  - [ ] `OPEN`
-  - [ ] `OPEN_OK`
-  - [ ] `OPEN_ERR`
-  - [ ] `DATA`
-  - [ ] `ACK`
-  - [ ] `WINDOW`
-  - [ ] `FIN`
-  - [ ] `RST`
-  - [ ] `PING`
-  - [ ] `PONG`
-- [ ] Implement AEAD seal function.
-- [ ] Implement AEAD open function.
-- [ ] Use plain header as AEAD AAD.
-- [ ] Implement nonce derivation.
-- [ ] Implement PSK-based key derivation.
-- [ ] Implement replay window.
-- [ ] Implement constant-time authentication checks where applicable.
-- [ ] Add golden test vectors.
-- [ ] Add invalid-input tests.
-- [ ] Add maximum-size frame tests.
-- [ ] Add malformed-header tests.
-- [ ] Add malformed-ciphertext tests.
+- [x] Define protocol magic value: `I2T1`.
+- [x] Define protocol version: `1`.
+- [x] Define plain ICMP payload header.
+- [x] Implement header encoding.
+- [x] Implement header decoding.
+- [x] Implement strict header validation.
+- [x] Define packet flags.
+- [x] Define packet direction bits.
+- [x] Define encrypted mux frame format.
+- [x] Implement mux frame encoding.
+- [x] Implement mux frame decoding.
+- [x] Define mux operations:
+  - [x] `HELLO`
+  - [x] `HELLO_REPLY`
+  - [x] `OPEN`
+  - [x] `OPEN_OK`
+  - [x] `OPEN_ERR`
+  - [x] `DATA`
+  - [x] `ACK`
+  - [x] `WINDOW`
+  - [x] `FIN`
+  - [x] `RST`
+  - [x] `PING`
+  - [x] `PONG`
+- [x] Implement AEAD seal function.
+- [x] Implement AEAD open function.
+- [x] Use plain header as AEAD AAD.
+- [x] Implement nonce derivation.
+- [x] Implement PSK-based key derivation.
+- [x] Implement replay window.
+- [x] Implement constant-time authentication checks where applicable.
+- [x] Add golden test vectors.
+- [x] Add invalid-input tests.
+- [x] Add maximum-size frame tests.
+- [x] Add malformed-header tests.
+- [x] Add malformed-ciphertext tests.
 
 ### Acceptance Criteria
 
-- [ ] `cargo test -p icmp2tunnel-proto` passes.
-- [ ] Decoders never panic on malformed input.
-- [ ] Golden vectors are stable.
-- [ ] Header and frame encoders are endian-explicit.
-- [ ] AEAD rejects modified headers.
-- [ ] AEAD rejects modified ciphertext.
-- [ ] Replay window rejects duplicated packet numbers.
+- [x] `cargo test -p icmp2tunnel-proto` passes.
+- [x] Decoders never panic on malformed input.
+- [x] Golden vectors are stable.
+- [x] Header and frame encoders are endian-explicit.
+- [x] AEAD rejects modified headers.
+- [x] AEAD rejects modified ciphertext.
+- [x] Replay window rejects duplicated packet numbers.
 
 ---
 
