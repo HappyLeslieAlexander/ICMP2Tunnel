@@ -11,5 +11,8 @@ path = "src/lib.rs"
 [dependencies]
 icmp2tunnel-proto = { path = "../icmp2tunnel-proto" }
 
+[dev-dependencies]
+icmp2tunnel-transport = { path = "../icmp2tunnel-transport" }
+
 [lints]
 workspace = true
