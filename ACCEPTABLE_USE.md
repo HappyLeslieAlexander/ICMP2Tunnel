@@ -1,5 +1,5 @@
 # Acceptable Use
 
-ICMP2Tunnel is for legitimate network testing, development, and administrative use.
+This source tree is intended for legitimate network testing, diagnostics, and administration on systems and networks you own or are explicitly authorized to operate.
 
-You must not use this project for unauthorized access, disruption, or concealment of malicious activity.
+Do not use it for unauthorized access, traffic concealment, policy bypass, data exfiltration, disruption, or open-proxy operation. Server-side peer ACLs, target ACLs, authentication, rate limits, and audit logging are mandatory controls in the provided server.

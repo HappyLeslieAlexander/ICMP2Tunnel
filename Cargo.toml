@@ -1,14 +1,20 @@
-[workspace]
-members = ["crates/icmp2tunnel", "crates/icmp2tunnel-proto", "crates/icmp2tunnel-socks", "crates/icmp2tunnel-transport", "crates/icmp2tunnel-core"]
-resolver = "2"
-exclude = ["fuzz"]
-
-[workspace.package]
+[package]
+name = "icmp2tunnel"
+version = "0.2.0"
 edition = "2021"
-license = "GPL-3.0-only"
-version = "0.1.0"
 rust-version = "1.78"
+license = "GPL-3.0-only"
+description = "Authenticated, ACL-protected SOCKS5-over-ICMP Echo tunnel for explicitly authorized lab and administrative networks"
 
-[workspace.lints.clippy]
-all = "warn"
-pedantic = "warn"
+[dependencies]
+chacha20poly1305 = { version = "0.10", default-features = false, features = ["std"] }
+hkdf = "0.12"
+sha2 = "0.10"
+libc = "0.2"
+rand = "0.8"
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+ctrlc = "3.4"

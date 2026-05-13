@@ -1,9 +1,0 @@
-psk = "replace-with-a-long-random-psk"
-salt = "icmp2tunnel-v1-lab"
-log_level = "info"
-peer_acl = ["203.0.113.20/32"]
-target_acl = ["198.51.100.10:443", "198.51.100.0/24:443"]
-max_sessions_per_peer = 8
-packet_per_sec = 256
-byte_per_sec = 262144
-read_timeout_ms = 250
