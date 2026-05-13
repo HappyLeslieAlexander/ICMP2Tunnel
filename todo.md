@@ -109,19 +109,19 @@ Goal: harden parsers before adding network input.
 
 ### Tasks
 
-- [ ] Add `cargo-fuzz` setup.
-- [ ] Add `fuzz_targets/frame_decode.rs`.
-- [ ] Add `fuzz_targets/socks_decode.rs`.
-- [ ] Add fuzz dictionary for protocol magic and mux opcodes.
-- [ ] Add CI job or manual documented fuzz command.
-- [ ] Ensure no decoder allocates unbounded memory from attacker-controlled length fields.
+- [x] Add `cargo-fuzz` setup.
+- [x] Add `fuzz_targets/frame_decode.rs`.
+- [x] Add `fuzz_targets/socks_decode.rs`.
+- [x] Add fuzz dictionary for protocol magic and mux opcodes.
+- [x] Add CI job or manual documented fuzz command.
+- [x] Ensure no decoder allocates unbounded memory from attacker-controlled length fields.
 
 ### Acceptance Criteria
 
-- [ ] `cargo fuzz run frame_decode` runs without crash.
-- [ ] `cargo fuzz run socks_decode` runs without crash.
-- [ ] Malformed input does not cause panic.
-- [ ] Malformed input does not cause excessive allocation.
+- [x] `cargo fuzz run frame_decode` runs without crash.
+- [x] `cargo fuzz run socks_decode` runs without crash.
+- [x] Malformed input does not cause panic.
+- [x] Malformed input does not cause excessive allocation.
 
 ---
 
