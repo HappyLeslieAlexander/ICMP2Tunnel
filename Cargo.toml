@@ -1,0 +1,14 @@
+[workspace]
+members = ["crates/icmp2tunnel", "crates/icmp2tunnel-proto"]
+resolver = "2"
+exclude = ["fuzz"]
+
+[workspace.package]
+edition = "2021"
+license = "GPL-3.0-only"
+version = "0.1.0"
+rust-version = "1.78"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
