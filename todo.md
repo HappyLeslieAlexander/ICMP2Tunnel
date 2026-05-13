@@ -370,22 +370,22 @@ icmp2tunnel-client
 - [x] Add structured logging.
 - [x] Bind local SOCKS5 listener.
 - [x] Refuse non-loopback listen address unless explicitly configured.
-- [ ] Create ICMP client backend from platform detection.
-- [ ] Create session to server.
-- [ ] Map SOCKS5 connections to tunnel streams.
-- [ ] Handle local TCP read shutdown.
-- [ ] Handle local TCP write shutdown.
-- [ ] Handle SIGINT/SIGTERM on Unix.
-- [ ] Handle Ctrl-C on Windows.
-- [ ] Add integration test using fake transport.
+- [x] Create ICMP client backend from platform detection.
+- [x] Create session to server.
+- [x] Map SOCKS5 connections to tunnel streams.
+- [x] Handle local TCP read shutdown.
+- [x] Handle local TCP write shutdown.
+- [x] Handle SIGINT/SIGTERM on Unix.
+- [x] Handle Ctrl-C on Windows.
+- [x] Add integration test using fake transport.
 
 ### Acceptance Criteria
 
 - [x] Client starts with `examples/client.toml`.
 - [x] Client listens on `127.0.0.1:1080`.
-- [ ] Client can open stream for SOCKS5 `CONNECT`.
-- [ ] Client can shut down gracefully.
-- [ ] Client logs connection lifecycle events.
+- [x] Client can open stream for SOCKS5 `CONNECT`.
+- [x] Client can shut down gracefully.
+- [x] Client logs connection lifecycle events.
 
 ---
 
