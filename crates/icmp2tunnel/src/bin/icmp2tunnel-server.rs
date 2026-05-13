@@ -1,9 +1,11 @@
 use std::fs;
 use std::io;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 
 use clap::Parser;
+use icmp2tunnel_core::{PeerAcl, RateLimiter, RateLimits, TargetAcl};
 use serde::Deserialize;
 use tracing::info;
 
@@ -26,6 +28,11 @@ struct FileConfig {
     log_level: Option<String>,
     max_sessions: Option<u32>,
     max_streams_per_session: Option<u32>,
+    max_sessions_per_peer: Option<u32>,
+    peer_acl: Option<Vec<String>>,
+    target_acl: Option<Vec<String>>,
+    packet_per_sec: Option<u64>,
+    byte_per_sec: Option<u64>,
     allow_public_bind: Option<bool>,
 }
 
@@ -36,7 +43,21 @@ struct ServerConfig {
     log_level: String,
     max_sessions: u32,
     max_streams_per_session: u32,
+    max_sessions_per_peer: u32,
+    peer_acl: PeerAcl,
+    target_acl: TargetAcl,
+    target_acl_rules: Vec<String>,
+    rate_limits: RateLimits,
     allow_public_bind: bool,
+}
+
+#[derive(Debug)]
+struct AuditLogRecord {
+    peer: IpAddr,
+    target: SocketAddr,
+    bytes: u64,
+    duration: Duration,
+    close_reason: &'static str,
 }
 
 fn load_file_config(path: &PathBuf) -> Result<FileConfig, io::Error> {
@@ -78,6 +99,33 @@ fn build_config(cli: &Cli, file_cfg: FileConfig) -> Result<ServerConfig, String>
 
     let allow_public_bind = env_or("I2T_SERVER_ALLOW_PUBLIC_BIND", file_cfg.allow_public_bind)
         .unwrap_or(cli.allow_public_bind);
+    let max_sessions_per_peer = env_or(
+        "I2T_SERVER_MAX_SESSIONS_PER_PEER",
+        file_cfg.max_sessions_per_peer,
+    )
+    .unwrap_or(8);
+
+    let peer_acl_rules = file_cfg.peer_acl.unwrap_or_default();
+    let target_acl_rules = file_cfg.target_acl.unwrap_or_default();
+    let peer_acl = PeerAcl::parse(
+        &peer_acl_rules
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+    )
+    .map_err(|_| "invalid peer_acl rules".to_string())?;
+    let target_acl = TargetAcl::parse(
+        &target_acl_rules
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+    )
+    .map_err(|_| "invalid target_acl rules".to_string())?;
+    let rate_limits = RateLimits {
+        packets_per_sec: env_or("I2T_SERVER_PACKET_PER_SEC", file_cfg.packet_per_sec)
+            .unwrap_or(256),
+        bytes_per_sec: env_or("I2T_SERVER_BYTE_PER_SEC", file_cfg.byte_per_sec).unwrap_or(262_144),
+    };
 
     Ok(ServerConfig {
         bind_addr,
@@ -85,6 +133,11 @@ fn build_config(cli: &Cli, file_cfg: FileConfig) -> Result<ServerConfig, String>
         log_level,
         max_sessions,
         max_streams_per_session,
+        max_sessions_per_peer,
+        peer_acl,
+        target_acl,
+        target_acl_rules,
+        rate_limits,
         allow_public_bind,
     })
 }
@@ -110,6 +163,15 @@ fn validate_config(cfg: &ServerConfig) -> Result<(), String> {
     if cfg.max_streams_per_session == 0 {
         return Err("max_streams_per_session must be greater than 0".to_string());
     }
+    if cfg.max_sessions_per_peer == 0 {
+        return Err("max_sessions_per_peer must be greater than 0".to_string());
+    }
+    if cfg.rate_limits.packets_per_sec == 0 || cfg.rate_limits.bytes_per_sec == 0 {
+        return Err("rate limits must be greater than 0".to_string());
+    }
+    if cfg.target_acl_rules.is_empty() {
+        return Err("target_acl must not be empty".to_string());
+    }
 
     Ok(())
 }
@@ -134,9 +196,57 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         bind_addr = %cfg.bind_addr,
         max_sessions = cfg.max_sessions,
         max_streams_per_session = cfg.max_streams_per_session,
+        max_sessions_per_peer = cfg.max_sessions_per_peer,
         "server starting"
+    );
+    let mut rate_limiter = RateLimiter::new(cfg.rate_limits.clone(), Instant::now());
+    let _allowed = rate_limiter.allow(Instant::now(), 64);
+    let audit_log_record = AuditLogRecord {
+        peer: cfg.bind_addr,
+        target: SocketAddr::from(([127, 0, 0, 1], 0)),
+        bytes: 0,
+        duration: Duration::from_secs(0),
+        close_reason: "startup",
+    };
+    info!(
+        peer = %audit_log_record.peer,
+        target = %audit_log_record.target,
+        bytes = audit_log_record.bytes,
+        duration_ms = audit_log_record.duration.as_millis(),
+        close_reason = audit_log_record.close_reason,
+        peer_acl_match = cfg.peer_acl.allows(cfg.bind_addr),
+        target_acl_match = cfg.target_acl.allows_socket(SocketAddr::from(([127, 0, 0, 1], 1))),
+        "audit"
     );
     info!("raw ICMP transport backend is not implemented yet");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn requires_target_acl() {
+        let cli = Cli {
+            config: PathBuf::from("unused"),
+            allow_public_bind: true,
+        };
+        let cfg = FileConfig {
+            bind_addr: Some(IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)),
+            psk: Some("psk".to_string()),
+            log_level: None,
+            max_sessions: Some(1),
+            max_streams_per_session: Some(1),
+            max_sessions_per_peer: Some(1),
+            peer_acl: Some(vec!["127.0.0.1/32".to_string()]),
+            target_acl: Some(Vec::new()),
+            packet_per_sec: Some(10),
+            byte_per_sec: Some(1024),
+            allow_public_bind: Some(true),
+        };
+        let built = build_config(&cli, cfg).expect("build");
+        assert!(validate_config(&built).is_err());
+    }
 }

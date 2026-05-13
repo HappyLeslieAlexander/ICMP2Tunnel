@@ -12,6 +12,7 @@ path = "src/lib.rs"
 workspace = true
 
 [dependencies]
+icmp2tunnel-core = { path = "../icmp2tunnel-core" }
 icmp2tunnel-socks = { path = "../icmp2tunnel-socks" }
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
