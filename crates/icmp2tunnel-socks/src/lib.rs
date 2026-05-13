@@ -135,7 +135,11 @@ pub fn parse_request(stream: &mut TcpStream) -> Result<SocksRequest, SocksError>
     })
 }
 
-pub fn write_reply(stream: &mut TcpStream, rep: u8, bind_addr: SocketAddr) -> Result<(), SocksError> {
+pub fn write_reply(
+    stream: &mut TcpStream,
+    rep: u8,
+    bind_addr: SocketAddr,
+) -> Result<(), SocksError> {
     let mut out = Vec::with_capacity(22);
     out.push(SOCKS5_VERSION);
     out.push(rep);

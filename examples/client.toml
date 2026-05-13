@@ -1,0 +1,5 @@
+listen_addr = "127.0.0.1:1080"
+server_addr = "203.0.113.10"
+psk = "replace-with-strong-psk"
+log_level = "info"
+allow_non_loopback = false
