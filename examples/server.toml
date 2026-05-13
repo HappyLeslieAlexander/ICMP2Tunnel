@@ -1,0 +1,6 @@
+bind_addr = "0.0.0.0"
+psk = "replace-with-strong-psk"
+log_level = "info"
+max_sessions = 64
+max_streams_per_session = 32
+allow_public_bind = false
