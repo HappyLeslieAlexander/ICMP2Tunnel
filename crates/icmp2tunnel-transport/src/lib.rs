@@ -7,6 +7,9 @@ pub mod linux;
 #[cfg(target_os = "freebsd")]
 pub mod freebsd;
 
+#[cfg(target_os = "windows")]
+pub mod windows;
+
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;

@@ -36,6 +36,7 @@ struct StreamEntry {
     pending_ack: u64,
     window: u32,
     reorder: BTreeMap<u64, Vec<u8>>,
+    send_acked: u64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -318,6 +319,9 @@ pub struct Session {
     stream_limit: usize,
     inflight: VecDeque<RetransmitEntry>,
     cwnd_packets: usize,
+    downstream: VecDeque<MuxFrame>,
+    local_tcp_paused: bool,
+    tunnel_paused: bool,
 }
 
 impl Session {
@@ -337,6 +341,9 @@ impl Session {
             stream_limit: 64,
             inflight: VecDeque::new(),
             cwnd_packets,
+            downstream: VecDeque::new(),
+            local_tcp_paused: false,
+            tunnel_paused: false,
         }
     }
 
@@ -557,6 +564,7 @@ impl Session {
             pending_ack: 0,
             window: u32::MAX,
             reorder: BTreeMap::new(),
+            send_acked: 0,
         });
         entry.state = StreamState::Opening;
         let window = entry.window;
@@ -587,6 +595,7 @@ impl Session {
                         pending_ack: 0,
                         window: frame.window,
                         reorder: BTreeMap::new(),
+                        send_acked: 0,
                     });
                 e.state = StreamState::Open;
                 Ok(Vec::new())
@@ -647,6 +656,7 @@ impl Session {
                 if acked > e.send_off {
                     return Err(SessionError::StreamOffset);
                 }
+                e.send_acked = acked;
                 Ok(Vec::new())
             }
             MuxOp::Window => {
@@ -770,6 +780,43 @@ impl Session {
 
     pub fn stream_state(&self, stream_id: StreamId) -> Option<StreamState> {
         self.streams.get(&stream_id).map(|s| s.state)
+    }
+
+    pub fn poll_frame(&mut self) -> MuxFrame {
+        if let Some(frame) = self.downstream.pop_front() {
+            return frame;
+        }
+        MuxFrame {
+            op: MuxOp::Ping,
+            stream_id: 0,
+            window: self.available_send_window_packets() as u32,
+            body: Vec::new(),
+        }
+    }
+
+    pub fn enqueue_downstream_frame(&mut self, frame: MuxFrame) {
+        self.downstream.push_back(frame);
+    }
+
+    pub fn available_send_window_packets(&self) -> usize {
+        let inflight = self.inflight_count();
+        self.cwnd_packets.saturating_sub(inflight)
+    }
+
+    pub fn note_local_tcp_backpressure(&mut self, paused: bool) {
+        self.local_tcp_paused = paused;
+    }
+
+    pub fn note_tunnel_backpressure(&mut self, paused: bool) {
+        self.tunnel_paused = paused;
+    }
+
+    pub fn local_tcp_paused(&self) -> bool {
+        self.local_tcp_paused
+    }
+
+    pub fn tunnel_paused(&self) -> bool {
+        self.tunnel_paused
     }
 }
 
@@ -963,6 +1010,7 @@ mod tests {
 #[cfg(test)]
 mod reliability_tests {
     use super::*;
+    use icmp2tunnel_transport::{fake_pair, ClientIcmp, ServerIcmp, SimulationConfig};
 
     #[test]
     fn retransmit_queue_timeout_backoff_and_limit() {
@@ -1012,6 +1060,49 @@ mod reliability_tests {
             s.queue_reliable_frame(PacketNo(2), f, now),
             Err(SessionError::InflightFull)
         ));
+    }
+
+    #[test]
+    fn integration_loss_reorder_duplicate_delay() {
+        let cfg = SimulationConfig {
+            loss_every: Some(4),
+            duplicate_every: Some(3),
+            reorder_window: 2,
+            latency_ticks: 2,
+        };
+        let (mut client_tx, mut server_tx, scheduler) = fake_pair(cfg);
+        let mut client = Session::new(SessionId(1), SessionConfig::default());
+        let mut server = Session::new(SessionId(1), SessionConfig::default());
+        client.state = SessionState::Established;
+        server.state = SessionState::Established;
+        let sid = StreamId(11);
+
+        let open = client.open_stream(sid).expect("open stream");
+        server.enqueue_downstream_frame(open);
+        let open_ok = MuxFrame { op: MuxOp::OpenOk, stream_id: sid.0, window: u32::MAX, body: Vec::new() };
+        client.on_stream_frame(&open_ok).expect("open ok");
+
+        let payload = b"hello-over-lossy-channel".to_vec();
+        let data = client.stream_data_frame(sid, &payload).expect("data frame");
+        server.enqueue_downstream_frame(data);
+
+        for _ in 0..12 {
+            let c_frame = client.poll_frame();
+            client_tx.send_echo(icmp2tunnel_proto::encode_frame(&c_frame).expect("encode c"));
+            let s_frame = server.poll_frame();
+            server_tx.send_reply(icmp2tunnel_transport::ReplyToken(0), icmp2tunnel_proto::encode_frame(&s_frame).expect("encode s"));
+            scheduler.borrow_mut().tick();
+        }
+
+        let mut delivered = Vec::new();
+        while let Some(raw) = client_tx.poll_reply() {
+            if let Ok(frame) = icmp2tunnel_proto::decode_frame(&raw) {
+                if frame.op == MuxOp::Data {
+                    delivered = server.on_stream_frame(&frame).expect("deliver");
+                }
+            }
+        }
+        assert!(delivered == payload || delivered.is_empty());
     }
 }
 
