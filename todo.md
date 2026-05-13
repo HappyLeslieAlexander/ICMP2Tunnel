@@ -12,32 +12,32 @@ Goal: create a clean Rust workspace that can compile and test before any ICMP-sp
 
 ### Tasks
 
-- [ ] Create root Rust workspace.
-- [ ] Add `README.md`.
-- [ ] Add `framework.md`.
-- [ ] Add `todo.md`.
-- [ ] Add `LICENSE-MIT`.
-- [ ] Add `LICENSE-APACHE`.
-- [ ] Add `SECURITY.md`.
-- [ ] Add `ACCEPTABLE_USE.md`.
-- [ ] Add `rust-toolchain.toml`.
-- [ ] Add `deny.toml`.
-- [ ] Add `.gitignore`.
-- [ ] Add `.github/workflows/ci.yml`.
-- [ ] Add `.github/workflows/audit.yml`.
-- [ ] Add `.github/workflows/release.yml`.
-- [ ] Create `docs/` directory.
-- [ ] Create `examples/` directory.
-- [ ] Create `crates/` directory.
-- [ ] Create `tests/` directory.
-- [ ] Create `fuzz/` directory.
-- [ ] Create `packaging/` directory.
+- [x] Create root Rust workspace.
+- [x] Add `README.md`.
+- [x] Add `framework.md`.
+- [x] Add `todo.md`.
+- [x] Add `LICENSE-MIT`.
+- [x] Add `LICENSE-APACHE`.
+- [x] Add `SECURITY.md`.
+- [x] Add `ACCEPTABLE_USE.md`.
+- [x] Add `rust-toolchain.toml`.
+- [x] Add `deny.toml`.
+- [x] Add `.gitignore`.
+- [x] Add `.github/workflows/ci.yml`.
+- [x] Add `.github/workflows/audit.yml`.
+- [x] Add `.github/workflows/release.yml`.
+- [x] Create `docs/` directory.
+- [x] Create `examples/` directory.
+- [x] Create `crates/` directory.
+- [x] Create `tests/` directory.
+- [x] Create `fuzz/` directory.
+- [x] Create `packaging/` directory.
 
 ### Acceptance Criteria
 
-- [ ] `cargo fmt --check` passes.
-- [ ] `cargo clippy --workspace --all-targets -- -D warnings` passes.
-- [ ] `cargo test --workspace` passes.
+- [x] `cargo fmt --check` passes.
+- [x] `cargo clippy --workspace --all-targets -- -D warnings` passes.
+- [x] `cargo test --workspace` passes.
 - [ ] `cargo deny check` passes.
 
 ---
