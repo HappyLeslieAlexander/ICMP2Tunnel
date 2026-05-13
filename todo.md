@@ -324,23 +324,23 @@ Goal: prevent open-proxy behavior.
 
 ### Tasks
 
-- [ ] Implement peer allowlist parser.
-- [ ] Implement target allowlist parser.
-- [ ] Support CIDR + port target rules.
-- [ ] Support explicit host + port target rules.
+- [x] Implement peer allowlist parser.
+- [x] Implement target allowlist parser.
+- [x] Support CIDR + port target rules.
+- [x] Support explicit host + port target rules.
 - [ ] Reject unmatched peers.
 - [ ] Reject unmatched targets.
-- [ ] Reject loopback targets by default.
-- [ ] Reject link-local targets by default.
-- [ ] Reject metadata-service style addresses by default.
-- [ ] Re-check resolved domain IPs against target ACL.
-- [ ] Implement max sessions per peer.
-- [ ] Implement max streams per session.
-- [ ] Implement packet-per-second limit.
-- [ ] Implement byte-per-second limit.
-- [ ] Implement audit log record.
-- [ ] Add ACL unit tests.
-- [ ] Add rate-limit unit tests.
+- [x] Reject loopback targets by default.
+- [x] Reject link-local targets by default.
+- [x] Reject metadata-service style addresses by default.
+- [x] Re-check resolved domain IPs against target ACL.
+- [x] Implement max sessions per peer.
+- [x] Implement max streams per session.
+- [x] Implement packet-per-second limit.
+- [x] Implement byte-per-second limit.
+- [x] Implement audit log record.
+- [x] Add ACL unit tests.
+- [x] Add rate-limit unit tests.
 
 ### Acceptance Criteria
 
