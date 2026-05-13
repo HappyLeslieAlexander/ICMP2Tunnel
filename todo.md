@@ -370,22 +370,22 @@ icmp2tunnel-client
 - [x] Add structured logging.
 - [x] Bind local SOCKS5 listener.
 - [x] Refuse non-loopback listen address unless explicitly configured.
-- [ ] Create ICMP client backend from platform detection.
-- [ ] Create session to server.
-- [ ] Map SOCKS5 connections to tunnel streams.
-- [ ] Handle local TCP read shutdown.
-- [ ] Handle local TCP write shutdown.
-- [ ] Handle SIGINT/SIGTERM on Unix.
-- [ ] Handle Ctrl-C on Windows.
-- [ ] Add integration test using fake transport.
+- [x] Create ICMP client backend from platform detection.
+- [x] Create session to server.
+- [x] Map SOCKS5 connections to tunnel streams.
+- [x] Handle local TCP read shutdown.
+- [x] Handle local TCP write shutdown.
+- [x] Handle SIGINT/SIGTERM on Unix.
+- [x] Handle Ctrl-C on Windows.
+- [x] Add integration test using fake transport.
 
 ### Acceptance Criteria
 
 - [x] Client starts with `examples/client.toml`.
 - [x] Client listens on `127.0.0.1:1080`.
-- [ ] Client can open stream for SOCKS5 `CONNECT`.
-- [ ] Client can shut down gracefully.
-- [ ] Client logs connection lifecycle events.
+- [x] Client can open stream for SOCKS5 `CONNECT`.
+- [x] Client can shut down gracefully.
+- [x] Client logs connection lifecycle events.
 
 ---
 
@@ -405,28 +405,28 @@ icmp2tunnel-server
 - [x] Add config file loading.
 - [x] Add environment variable overrides.
 - [x] Add structured logging.
-- [ ] Create raw ICMP server backend.
-- [ ] Authenticate session handshake.
-- [ ] Enforce peer ACL.
-- [ ] Enforce target ACL.
-- [ ] Open target TCP connection.
-- [ ] Forward target TCP bytes into tunnel stream.
-- [ ] Forward tunnel stream bytes into target TCP.
-- [ ] Enforce session limits.
-- [ ] Enforce stream limits.
-- [ ] Enforce rate limits.
-- [ ] Emit audit logs.
-- [ ] Handle graceful shutdown.
+- [x] Create raw ICMP server backend.
+- [x] Authenticate session handshake.
+- [x] Enforce peer ACL.
+- [x] Enforce target ACL.
+- [x] Open target TCP connection.
+- [x] Forward target TCP bytes into tunnel stream.
+- [x] Forward tunnel stream bytes into target TCP.
+- [x] Enforce session limits.
+- [x] Enforce stream limits.
+- [x] Enforce rate limits.
+- [x] Emit audit logs.
+- [x] Handle graceful shutdown.
 
 ### Acceptance Criteria
 
 - [x] Server starts with `examples/server.toml`.
-- [ ] Server refuses missing auth config.
-- [ ] Server refuses missing target ACL.
-- [ ] Server accepts authenticated client over fake transport.
-- [ ] Server opens allowlisted TCP target.
-- [ ] Server rejects disallowed TCP target.
-- [ ] Server shuts down gracefully.
+- [x] Server refuses missing auth config.
+- [x] Server refuses missing target ACL.
+- [x] Server accepts authenticated client over fake transport.
+- [x] Server opens allowlisted TCP target.
+- [x] Server rejects disallowed TCP target.
+- [x] Server shuts down gracefully.
 
 ---
 
