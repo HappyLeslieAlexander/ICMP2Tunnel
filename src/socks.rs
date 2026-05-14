@@ -202,11 +202,7 @@ pub fn parse_request<R: Read>(stream: &mut R) -> Result<SocksRequest, SocksError
     })
 }
 
-pub fn write_reply<W: Write>(
-    stream: &mut W,
-    rep: u8,
-    bind_addr: SocketAddr,
-) -> Result<(), SocksError> {
+pub fn write_reply<W: Write>(stream: &mut W, rep: u8, bind_addr: SocketAddr) -> Result<(), SocksError> {
     let mut out = Vec::with_capacity(22);
     out.push(SOCKS5_VERSION);
     out.push(rep);

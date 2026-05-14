@@ -1,13 +1,62 @@
-# Upstream review summary
+# Implementation Review Notes
 
-The referenced repository already contains useful building blocks: protocol codec and AEAD functions, SOCKS5 parsing helpers, fake transport tests, partial session/multiplexing primitives, ACL/rate-limit primitives, and platform-specific ICMP packet parsing helpers.
+This file records the implementation review context for the current completion
+package. It replaces the older upstream gap summary, which described a partial
+repository before the client/server integration was completed.
 
-The incomplete parts are the important integration layers:
+## Current Implementation Summary
 
-- The client binary accepts SOCKS5 connections but connects directly to the requested TCP target instead of carrying streams through ICMP/session/transport.
-- The server binary validates configuration and logs startup state, but still lacks a raw ICMP receive loop, session authentication, target TCP connector, stream forwarding, ACL enforcement in request processing, rate-limit enforcement in request processing, and graceful runtime shutdown.
-- The Linux and FreeBSD transport modules only parse/build packets; they do not open sockets or integrate with a runtime.
-- The Windows module parses replies but does not bind Windows ICMP APIs.
-- Several TODO milestones are marked complete even though the corresponding production integration is absent.
+The repository now contains a focused Unix raw-ICMP MVP:
 
-This package implements a focused Linux/Unix raw-ICMP MVP rather than the entire multi-platform roadmap. It preserves the important safety properties: PSK authentication, encrypted payloads, peer ACL, target ACL, loopback/link-local/metadata target rejection, per-peer rate limits, and audit logs.
+- A SOCKS5 client binary that forwards `CONNECT` streams through ICMP Echo
+  payloads.
+- A server binary that receives IPv4 ICMP Echo and IPv6 ICMPv6 Echo traffic.
+- An encrypted wire frame codec with direction-separated AEAD keys.
+- Peer ACLs, target ACLs, target safety blocks, and rate limits.
+- Per-peer session limits and per-session stream/pending queue limits.
+- Async target connection setup using worker threads.
+- Stream close auditing and idle cleanup.
+- Optional SOCKS username/password authentication for non-loopback client
+  listeners.
+
+## Review Findings Already Addressed
+
+The following issues were identified and fixed during review:
+
+- Request and reply AEAD nonce/key reuse.
+- Missing session-to-peer binding.
+- Missing stale packet/replay rejection.
+- Unbounded stream state, pending queues, and event queues.
+- Stream/file descriptor leaks on normal `Fin` paths.
+- Blocking target connection setup in the raw ICMP receive loop.
+- Client accepting ICMP replies without checking the source address.
+- Non-loopback SOCKS listener without mandatory authentication.
+- Narrow default target blocking that allowed private/special ranges too
+  easily.
+- Lack of IPv6 ICMP transport support.
+- README and docs lagging behind the implemented behavior.
+
+## Remaining Design Limitations
+
+These are known tradeoffs rather than accidental omissions:
+
+- The client-driven polling model generates traffic for idle streams.
+- The client serializes ICMP exchanges behind one raw socket mutex.
+- The server uses one thread per target reader and one connector thread per
+  pending open.
+- Replay protection assumes serialized packet numbers. A future out-of-order
+  transport needs a sliding replay window.
+- The project is Linux/Unix-oriented. Windows support requires a separate ICMP
+  API backend.
+- CI can compile and test the code, but live raw ICMP tests require privileged
+  hosts or VMs.
+
+## Recommended Next Improvements
+
+1. Add GitHub Actions for `fmt`, `clippy`, `test`, and release build.
+2. Commit `Cargo.lock`.
+3. Add integration tests using fake transports for session and stream state.
+4. Add a `check-config` subcommand.
+5. Add PSK loading from environment variables or a restricted file.
+6. Add metrics for sessions, streams, pending bytes, rejects, and rate limits.
+7. Consider an async/event-loop transport if higher concurrency becomes a goal.

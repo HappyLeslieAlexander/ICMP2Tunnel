@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::io::{self, Read, Write};
-use std::net::{IpAddr, Ipv4Addr, Shutdown, TcpStream};
+use std::net::{IpAddr, Shutdown, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender};
@@ -14,14 +14,13 @@ use serde::Deserialize;
 use tracing::{debug, error, info, warn};
 
 use icmp2tunnel::acl::{PeerAcl, PeerRateLimiters, RateLimiter, RateLimits, TargetAcl};
-use icmp2tunnel::icmp::{build_echo_reply, parse_echo_packet, IcmpSocket, ICMP_ECHO_REQUEST};
+use icmp2tunnel::icmp::{
+    build_echo_reply_for, parse_echo_packet_for, IcmpProtocol, IcmpSocket,
+};
 use icmp2tunnel::wire::{self, Direction, Frame, FrameType};
 
 #[derive(Debug, Parser)]
-#[command(
-    name = "icmp2tunnel-server",
-    about = "Authenticated ICMP2Tunnel server"
-)]
+#[command(name = "icmp2tunnel-server", about = "Authenticated ICMP2Tunnel server")]
 struct Cli {
     #[arg(short, long, default_value = "examples/server.toml")]
     config: PathBuf,
@@ -79,10 +78,7 @@ fn load_config(cli: &Cli) -> Result<ServerConfig, Box<dyn std::error::Error>> {
     )?;
     let cfg = ServerConfig {
         psk: file.psk.into_bytes(),
-        salt: file
-            .salt
-            .unwrap_or_else(|| "icmp2tunnel-v1".to_string())
-            .into_bytes(),
+        salt: file.salt.unwrap_or_else(|| "icmp2tunnel-v1".to_string()).into_bytes(),
         log_level: file.log_level.unwrap_or_else(|| "info".to_string()),
         peer_acl,
         target_acl,
@@ -98,9 +94,7 @@ fn load_config(cli: &Cli) -> Result<ServerConfig, Box<dyn std::error::Error>> {
         },
         read_timeout: Duration::from_millis(file.read_timeout_ms.unwrap_or(250)),
         connect_timeout: Duration::from_millis(file.connect_timeout_ms.unwrap_or(5000)),
-        session_idle_timeout: Duration::from_millis(
-            file.session_idle_timeout_ms.unwrap_or(300_000),
-        ),
+        session_idle_timeout: Duration::from_millis(file.session_idle_timeout_ms.unwrap_or(300_000)),
         rate_limiter_ttl: Duration::from_millis(file.rate_limiter_ttl_ms.unwrap_or(300_000)),
     };
     validate_config(&cfg)?;
@@ -249,9 +243,7 @@ impl SessionEntry {
     }
 
     fn total_stream_slots(&self) -> usize {
-        self.streams
-            .len()
-            .saturating_add(self.opening_streams.len())
+        self.streams.len().saturating_add(self.opening_streams.len())
     }
 
     fn queue_pending(
@@ -326,21 +318,13 @@ struct OpenedStream {
     target: String,
 }
 
-fn spawn_target_reader(
-    session_id: u64,
-    stream_id: u32,
-    mut tcp: TcpStream,
-    tx: SyncSender<ServerEvent>,
-) {
+fn spawn_target_reader(session_id: u64, stream_id: u32, mut tcp: TcpStream, tx: SyncSender<ServerEvent>) {
     thread::spawn(move || {
         let mut buf = [0_u8; 900];
         loop {
             match tcp.read(&mut buf) {
                 Ok(0) => {
-                    let _ = tx.send(ServerEvent::Fin {
-                        session_id,
-                        stream_id,
-                    });
+                    let _ = tx.send(ServerEvent::Fin { session_id, stream_id });
                     break;
                 }
                 Ok(n) => {
@@ -368,11 +352,7 @@ fn spawn_target_reader(
     });
 }
 
-fn queue_pending_frame(
-    cfg: &ServerConfig,
-    session: &mut SessionEntry,
-    frame: PendingFrame,
-) -> bool {
+fn queue_pending_frame(cfg: &ServerConfig, session: &mut SessionEntry, frame: PendingFrame) -> bool {
     session
         .queue_pending(
             frame,
@@ -555,10 +535,7 @@ fn drain_events(
 }
 
 fn count_sessions_for_peer(sessions: &HashMap<u64, SessionEntry>, peer: IpAddr) -> usize {
-    sessions
-        .values()
-        .filter(|session| session.peer == peer)
-        .count()
+    sessions.values().filter(|session| session.peer == peer).count()
 }
 
 fn spawn_target_connector(
@@ -607,19 +584,11 @@ fn handle_open(
     let target = match std::str::from_utf8(payload) {
         Ok(target) => target.to_string(),
         Err(_) => {
-            return Frame::new(
-                FrameType::OpenErr,
-                stream_id,
-                b"target is not UTF-8".to_vec(),
-            );
+            return Frame::new(FrameType::OpenErr, stream_id, b"target is not UTF-8".to_vec());
         }
     };
     if target.len() > 512 {
-        return Frame::new(
-            FrameType::OpenErr,
-            stream_id,
-            b"target is too long".to_vec(),
-        );
+        return Frame::new(FrameType::OpenErr, stream_id, b"target is too long".to_vec());
     }
 
     if session.streams.contains_key(&stream_id) {
@@ -629,11 +598,7 @@ fn handle_open(
         return Frame::new(FrameType::Pong, stream_id, Vec::new());
     }
     if session.total_stream_slots() >= cfg.max_streams_per_session {
-        return Frame::new(
-            FrameType::OpenErr,
-            stream_id,
-            b"stream limit exceeded".to_vec(),
-        );
+        return Frame::new(FrameType::OpenErr, stream_id, b"stream limit exceeded".to_vec());
     }
 
     session.opening_streams.insert(stream_id, Instant::now());
@@ -664,21 +629,13 @@ fn handle_frame(
                 session_id = opened.session_id,
                 "rejecting packet for session owned by another peer"
             );
-            return Frame::new(
-                FrameType::Rst,
-                opened.frame.stream_id,
-                b"session peer mismatch".to_vec(),
-            );
+            return Frame::new(FrameType::Rst, opened.frame.stream_id, b"session peer mismatch".to_vec());
         }
     }
 
     let is_new_session = !sessions.contains_key(&opened.session_id);
     if is_new_session && count_sessions_for_peer(sessions, peer) >= cfg.max_sessions_per_peer {
-        return Frame::new(
-            FrameType::Rst,
-            opened.frame.stream_id,
-            b"peer session limit exceeded".to_vec(),
-        );
+        return Frame::new(FrameType::Rst, opened.frame.stream_id, b"peer session limit exceeded".to_vec());
     }
 
     let session = sessions
@@ -697,11 +654,7 @@ fn handle_frame(
             highest_packet_no = session.highest_packet_no,
             "rejecting replayed or stale packet"
         );
-        return Frame::new(
-            FrameType::Rst,
-            opened.frame.stream_id,
-            b"replayed packet".to_vec(),
-        );
+        return Frame::new(FrameType::Rst, opened.frame.stream_id, b"replayed packet".to_vec());
     }
 
     let response = match opened.frame.kind {
@@ -718,39 +671,21 @@ fn handle_frame(
             if let Some(stream) = session.streams.get_mut(&opened.frame.stream_id) {
                 match stream.tcp.write_all(&opened.frame.payload) {
                     Ok(()) => {
-                        stream.bytes_up = stream
-                            .bytes_up
-                            .saturating_add(opened.frame.payload.len() as u64);
+                        stream.bytes_up = stream.bytes_up.saturating_add(opened.frame.payload.len() as u64);
                         session.next_pending_or_pong(opened.frame.stream_id)
                     }
                     Err(err) => {
                         if let Some(stream) = session.streams.remove(&opened.frame.stream_id) {
-                            audit_stream_close(
-                                peer,
-                                opened.frame.stream_id,
-                                &stream,
-                                "target write error",
-                            );
+                            audit_stream_close(peer, opened.frame.stream_id, &stream, "target write error");
                             let _ = stream.tcp.shutdown(Shutdown::Both);
                         }
-                        Frame::new(
-                            FrameType::Rst,
-                            opened.frame.stream_id,
-                            err.to_string().into_bytes(),
-                        )
+                        Frame::new(FrameType::Rst, opened.frame.stream_id, err.to_string().into_bytes())
                     }
                 }
-            } else if session
-                .opening_streams
-                .contains_key(&opened.frame.stream_id)
-            {
+            } else if session.opening_streams.contains_key(&opened.frame.stream_id) {
                 Frame::new(FrameType::Pong, opened.frame.stream_id, Vec::new())
             } else {
-                Frame::new(
-                    FrameType::Rst,
-                    opened.frame.stream_id,
-                    b"unknown stream".to_vec(),
-                )
+                Frame::new(FrameType::Rst, opened.frame.stream_id, b"unknown stream".to_vec())
             }
         }
         FrameType::Fin => {
@@ -824,8 +759,35 @@ fn cleanup_sessions(
     }
 }
 
-fn cleanup_rate_limiters(rate_limiters: &mut PeerRateLimiters, now: Instant, ttl: Duration) {
+fn cleanup_rate_limiters(
+    rate_limiters: &mut PeerRateLimiters,
+    now: Instant,
+    ttl: Duration,
+) {
     rate_limiters.retain(|_, limiter| now.duration_since(limiter.last_seen()) < ttl);
+}
+
+fn open_icmp_sockets(read_timeout: Duration) -> io::Result<Vec<IcmpSocket>> {
+    let mut sockets = Vec::with_capacity(2);
+    for protocol in [IcmpProtocol::V4, IcmpProtocol::V6] {
+        match IcmpSocket::raw_for(protocol) {
+            Ok(socket) => {
+                socket.set_read_timeout(Some(read_timeout))?;
+                info!(?protocol, "raw ICMP socket opened");
+                sockets.push(socket);
+            }
+            Err(err) => {
+                warn!(?protocol, error = %err, "failed to open raw ICMP socket");
+            }
+        }
+    }
+    if sockets.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "failed to open any IPv4 or IPv6 raw ICMP socket",
+        ));
+    }
+    Ok(sockets)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -833,8 +795,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cfg = load_config(&cli)?;
     init_logging(&cfg.log_level);
 
-    let socket = IcmpSocket::raw()?;
-    socket.set_read_timeout(Some(cfg.read_timeout))?;
+    let sockets = open_icmp_sockets(cfg.read_timeout)?;
     drop_privileges_if_root()?;
     let shutdown = Arc::new(AtomicBool::new(false));
     {
@@ -848,7 +809,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut buf = vec![0_u8; 4096];
     let mut last_cleanup = Instant::now();
 
-    info!("server ready; raw ICMP socket opened");
+    info!(socket_count = sockets.len(), "server ready");
     while !shutdown.load(Ordering::SeqCst) {
         drain_events(&cfg, &event_rx, &mut sessions, &event_tx);
         let now = Instant::now();
@@ -857,9 +818,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             cleanup_rate_limiters(&mut rate_limiters, now, cfg.rate_limiter_ttl);
             last_cleanup = now;
         }
+        for socket in &sockets {
         match socket.recv_from(&mut buf) {
             Ok((n, src)) => {
-                let peer = IpAddr::V4(src);
+                let peer = src.ip();
                 if !cfg.peer_acl.allows(peer) {
                     warn!(%peer, "peer rejected by ACL");
                     continue;
@@ -878,14 +840,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     continue;
                 }
 
-                let echo = match parse_echo_packet(&buf[..n]) {
+                let protocol = socket.protocol();
+                let echo = match parse_echo_packet_for(protocol, &buf[..n]) {
                     Ok(echo) => echo,
                     Err(err) => {
                         debug!(%peer, error = %err, "invalid ICMP packet");
                         continue;
                     }
                 };
-                if echo.kind != ICMP_ECHO_REQUEST {
+                if echo.kind != protocol.request_type() {
                     continue;
                 }
                 let opened = match wire::open(
@@ -917,14 +880,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         continue;
                     }
                 };
-                let reply = build_echo_reply(echo.identifier, echo.sequence, &sealed);
+                let reply = build_echo_reply_for(protocol, echo.identifier, echo.sequence, &sealed);
                 if let Err(err) = socket.send_to(src, &reply) {
                     warn!(%peer, error = %err, "failed to send ICMP reply");
                 }
             }
             Err(err)
-                if err.kind() == io::ErrorKind::WouldBlock
-                    || err.kind() == io::ErrorKind::TimedOut =>
+                if err.kind() == io::ErrorKind::WouldBlock || err.kind() == io::ErrorKind::TimedOut =>
             {
                 continue;
             }
@@ -932,6 +894,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 error!(error = %err, "raw ICMP receive failed");
                 break;
             }
+        }
         }
     }
 

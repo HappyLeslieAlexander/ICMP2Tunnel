@@ -128,8 +128,7 @@ impl TargetAcl {
     pub fn parse_with_options(rules: &[String], deny_private: bool) -> Result<Self, AclError> {
         let mut parsed = Vec::with_capacity(rules.len());
         for rule in rules {
-            let (host, port) =
-                split_host_port(rule).ok_or_else(|| AclError::MissingPort(rule.clone()))?;
+            let (host, port) = split_host_port(rule).ok_or_else(|| AclError::MissingPort(rule.clone()))?;
             let port: u16 = port
                 .parse()
                 .map_err(|_| AclError::InvalidRule(rule.clone()))?;
@@ -157,8 +156,7 @@ impl TargetAcl {
     }
 
     pub fn resolve_allowed(&self, target: &str) -> Result<SocketAddr, AclError> {
-        let (host, port_s) =
-            split_host_port(target).ok_or_else(|| AclError::MissingPort(target.to_string()))?;
+        let (host, port_s) = split_host_port(target).ok_or_else(|| AclError::MissingPort(target.to_string()))?;
         let port: u16 = port_s
             .parse()
             .map_err(|_| AclError::InvalidRule(target.to_string()))?;
@@ -183,10 +181,7 @@ impl TargetAcl {
         if self.deny_private && is_private_or_special_ip(ip) {
             return false;
         }
-        let host_lc = host
-            .trim_start_matches('[')
-            .trim_end_matches(']')
-            .to_ascii_lowercase();
+        let host_lc = host.trim_start_matches('[').trim_end_matches(']').to_ascii_lowercase();
         self.rules.iter().any(|rule| {
             if rule.port != port {
                 return false;
@@ -320,8 +315,7 @@ mod tests {
 
     #[test]
     fn target_acl_can_allow_private_when_explicitly_enabled() {
-        let acl =
-            TargetAcl::parse_with_options(&["10.0.0.1:443".to_string()], false).expect("parse");
+        let acl = TargetAcl::parse_with_options(&["10.0.0.1:443".to_string()], false).expect("parse");
         assert!(acl.allows_host_ip_port("10.0.0.1", "10.0.0.1".parse().expect("ip"), 443));
     }
 }
