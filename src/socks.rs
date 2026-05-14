@@ -4,7 +4,9 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
 
 pub const SOCKS5_VERSION: u8 = 0x05;
 pub const METHOD_NO_AUTH: u8 = 0x00;
+pub const METHOD_USERNAME_PASSWORD: u8 = 0x02;
 pub const METHOD_NO_ACCEPTABLE: u8 = 0xff;
+pub const USERNAME_PASSWORD_VERSION: u8 = 0x01;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Command {
@@ -49,6 +51,7 @@ pub enum SocksError {
     NoAcceptableMethod,
     UnsupportedAddressType(u8),
     InvalidDomain,
+    AuthFailed,
     Io(io::Error),
 }
 
@@ -59,6 +62,7 @@ impl fmt::Display for SocksError {
             Self::NoAcceptableMethod => write!(f, "no acceptable SOCKS authentication method"),
             Self::UnsupportedAddressType(v) => write!(f, "unsupported SOCKS address type {v:#x}"),
             Self::InvalidDomain => write!(f, "invalid SOCKS domain field"),
+            Self::AuthFailed => write!(f, "SOCKS username/password authentication failed"),
             Self::Io(err) => write!(f, "SOCKS I/O error: {err}"),
         }
     }
@@ -73,6 +77,13 @@ impl From<io::Error> for SocksError {
 }
 
 pub fn negotiate_no_auth<RW: Read + Write>(stream: &mut RW) -> Result<(), SocksError> {
+    negotiate(stream, None)
+}
+
+pub fn negotiate<RW: Read + Write>(
+    stream: &mut RW,
+    auth: Option<(&str, &str)>,
+) -> Result<(), SocksError> {
     let mut header = [0_u8; 2];
     stream.read_exact(&mut header)?;
     if header[0] != SOCKS5_VERSION {
@@ -81,7 +92,9 @@ pub fn negotiate_no_auth<RW: Read + Write>(stream: &mut RW) -> Result<(), SocksE
 
     let mut methods = vec![0_u8; usize::from(header[1])];
     stream.read_exact(&mut methods)?;
-    let selected = if methods.contains(&METHOD_NO_AUTH) {
+    let selected = if auth.is_some() && methods.contains(&METHOD_USERNAME_PASSWORD) {
+        METHOD_USERNAME_PASSWORD
+    } else if auth.is_none() && methods.contains(&METHOD_NO_AUTH) {
         METHOD_NO_AUTH
     } else {
         METHOD_NO_ACCEPTABLE
@@ -92,7 +105,53 @@ pub fn negotiate_no_auth<RW: Read + Write>(stream: &mut RW) -> Result<(), SocksE
     if selected == METHOD_NO_ACCEPTABLE {
         return Err(SocksError::NoAcceptableMethod);
     }
+    if selected == METHOD_USERNAME_PASSWORD {
+        let (username, password) = auth.expect("selected username/password requires credentials");
+        authenticate_username_password(stream, username.as_bytes(), password.as_bytes())?;
+    }
     Ok(())
+}
+
+fn authenticate_username_password<RW: Read + Write>(
+    stream: &mut RW,
+    expected_username: &[u8],
+    expected_password: &[u8],
+) -> Result<(), SocksError> {
+    let mut header = [0_u8; 2];
+    stream.read_exact(&mut header)?;
+    if header[0] != USERNAME_PASSWORD_VERSION || header[1] == 0 {
+        let _ = stream.write_all(&[USERNAME_PASSWORD_VERSION, 0x01]);
+        let _ = stream.flush();
+        return Err(SocksError::AuthFailed);
+    }
+
+    let mut username = vec![0_u8; usize::from(header[1])];
+    stream.read_exact(&mut username)?;
+    let mut password_len = [0_u8; 1];
+    stream.read_exact(&mut password_len)?;
+    let mut password = vec![0_u8; usize::from(password_len[0])];
+    stream.read_exact(&mut password)?;
+
+    let ok = constant_time_eq(&username, expected_username)
+        & constant_time_eq(&password, expected_password);
+    let status = if ok { 0x00 } else { 0x01 };
+    stream.write_all(&[USERNAME_PASSWORD_VERSION, status])?;
+    stream.flush()?;
+    if !ok {
+        return Err(SocksError::AuthFailed);
+    }
+    Ok(())
+}
+
+fn constant_time_eq(left: &[u8], right: &[u8]) -> bool {
+    let mut diff = left.len() ^ right.len();
+    let max_len = left.len().max(right.len());
+    for i in 0..max_len {
+        let a = left.get(i).copied().unwrap_or(0);
+        let b = right.get(i).copied().unwrap_or(0);
+        diff |= usize::from(a ^ b);
+    }
+    diff == 0
 }
 
 pub fn parse_request<R: Read>(stream: &mut R) -> Result<SocksRequest, SocksError> {
@@ -143,7 +202,11 @@ pub fn parse_request<R: Read>(stream: &mut R) -> Result<SocksRequest, SocksError
     })
 }
 
-pub fn write_reply<W: Write>(stream: &mut W, rep: u8, bind_addr: SocketAddr) -> Result<(), SocksError> {
+pub fn write_reply<W: Write>(
+    stream: &mut W,
+    rep: u8,
+    bind_addr: SocketAddr,
+) -> Result<(), SocksError> {
     let mut out = Vec::with_capacity(22);
     out.push(SOCKS5_VERSION);
     out.push(rep);

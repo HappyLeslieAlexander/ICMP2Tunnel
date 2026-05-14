@@ -14,6 +14,13 @@ pub const TAG_LEN: usize = 16;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
+pub enum Direction {
+    ClientToServer = 1,
+    ServerToClient = 2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum FrameType {
     Hello = 1,
     Open = 2,
@@ -96,18 +103,26 @@ impl fmt::Display for WireError {
 
 impl std::error::Error for WireError {}
 
-fn derive_key(psk: &[u8], salt: &[u8]) -> Result<[u8; 32], WireError> {
+fn derive_key(
+    psk: &[u8],
+    salt: &[u8],
+    direction: Direction,
+    session_id: u64,
+) -> Result<[u8; 32], WireError> {
     let hk = Hkdf::<Sha256>::new(Some(salt), psk);
     let mut key = [0_u8; 32];
-    hk.expand(b"icmp2tunnel-v1-aead", &mut key)
+    let mut info = Vec::with_capacity(28);
+    info.extend_from_slice(b"icmp2tunnel-v1-aead");
+    info.push(direction as u8);
+    info.extend_from_slice(&session_id.to_be_bytes());
+    hk.expand(&info, &mut key)
         .map_err(|_| WireError::KeyDerive)?;
     Ok(key)
 }
 
-fn nonce(session_id: u64, packet_no: u64) -> [u8; 12] {
+fn nonce(packet_no: u64) -> [u8; 12] {
     let mut out = [0_u8; 12];
     out[0..8].copy_from_slice(&packet_no.to_be_bytes());
-    out[8..12].copy_from_slice(&(session_id as u32).to_be_bytes());
     out
 }
 
@@ -126,8 +141,16 @@ fn decode_frame_plain(input: &[u8]) -> Result<Frame, WireError> {
         return Err(WireError::InvalidLength);
     }
     let kind = FrameType::try_from(input[0])?;
-    let stream_id = u32::from_be_bytes(input[1..5].try_into().map_err(|_| WireError::InvalidLength)?);
-    let len = u32::from_be_bytes(input[5..9].try_into().map_err(|_| WireError::InvalidLength)?) as usize;
+    let stream_id = u32::from_be_bytes(
+        input[1..5]
+            .try_into()
+            .map_err(|_| WireError::InvalidLength)?,
+    );
+    let len = u32::from_be_bytes(
+        input[5..9]
+            .try_into()
+            .map_err(|_| WireError::InvalidLength)?,
+    ) as usize;
     if input.len() != 9 + len {
         return Err(WireError::InvalidLength);
     }
@@ -138,7 +161,11 @@ fn decode_frame_plain(input: &[u8]) -> Result<Frame, WireError> {
     })
 }
 
-fn encode_header(session_id: u64, packet_no: u64, ciphertext_len: usize) -> Result<[u8; HEADER_LEN], WireError> {
+fn encode_header(
+    session_id: u64,
+    packet_no: u64,
+    ciphertext_len: usize,
+) -> Result<[u8; HEADER_LEN], WireError> {
     let ciphertext_len = u32::try_from(ciphertext_len).map_err(|_| WireError::PayloadTooLarge)?;
     let mut out = [0_u8; HEADER_LEN];
     out[0..4].copy_from_slice(&MAGIC);
@@ -162,29 +189,49 @@ fn decode_header(input: &[u8]) -> Result<(u64, u64, usize), WireError> {
     if input[4] != VERSION {
         return Err(WireError::InvalidVersion(input[4]));
     }
-    let header_len = u16::from_be_bytes(input[6..8].try_into().map_err(|_| WireError::InvalidLength)?) as usize;
+    let header_len = u16::from_be_bytes(
+        input[6..8]
+            .try_into()
+            .map_err(|_| WireError::InvalidLength)?,
+    ) as usize;
     if header_len != HEADER_LEN {
         return Err(WireError::InvalidLength);
     }
-    let session_id = u64::from_be_bytes(input[8..16].try_into().map_err(|_| WireError::InvalidLength)?);
-    let packet_no = u64::from_be_bytes(input[16..24].try_into().map_err(|_| WireError::InvalidLength)?);
-    let ciphertext_len = u32::from_be_bytes(input[24..28].try_into().map_err(|_| WireError::InvalidLength)?) as usize;
+    let session_id = u64::from_be_bytes(
+        input[8..16]
+            .try_into()
+            .map_err(|_| WireError::InvalidLength)?,
+    );
+    let packet_no = u64::from_be_bytes(
+        input[16..24]
+            .try_into()
+            .map_err(|_| WireError::InvalidLength)?,
+    );
+    let ciphertext_len = u32::from_be_bytes(
+        input[24..28]
+            .try_into()
+            .map_err(|_| WireError::InvalidLength)?,
+    ) as usize;
     Ok((session_id, packet_no, ciphertext_len))
 }
 
 pub fn seal(
     psk: &[u8],
     salt: &[u8],
+    direction: Direction,
     session_id: u64,
     packet_no: u64,
     frame: &Frame,
 ) -> Result<Vec<u8>, WireError> {
     let plain = encode_frame_plain(frame)?;
-    let ciphertext_len = plain.len().checked_add(TAG_LEN).ok_or(WireError::PayloadTooLarge)?;
+    let ciphertext_len = plain
+        .len()
+        .checked_add(TAG_LEN)
+        .ok_or(WireError::PayloadTooLarge)?;
     let header = encode_header(session_id, packet_no, ciphertext_len)?;
-    let key = derive_key(psk, salt)?;
+    let key = derive_key(psk, salt, direction, session_id)?;
     let cipher = ChaCha20Poly1305::new_from_slice(&key).map_err(|_| WireError::Crypto)?;
-    let nonce = nonce(session_id, packet_no);
+    let nonce = nonce(packet_no);
     let ciphertext = cipher
         .encrypt(
             Nonce::from_slice(&nonce),
@@ -200,16 +247,21 @@ pub fn seal(
     Ok(out)
 }
 
-pub fn open(psk: &[u8], salt: &[u8], input: &[u8]) -> Result<OpenedFrame, WireError> {
+pub fn open(
+    psk: &[u8],
+    salt: &[u8],
+    direction: Direction,
+    input: &[u8],
+) -> Result<OpenedFrame, WireError> {
     let (session_id, packet_no, ciphertext_len) = decode_header(input)?;
     if input.len() != HEADER_LEN + ciphertext_len {
         return Err(WireError::InvalidLength);
     }
     let header = &input[..HEADER_LEN];
     let ciphertext = &input[HEADER_LEN..];
-    let key = derive_key(psk, salt)?;
+    let key = derive_key(psk, salt, direction, session_id)?;
     let cipher = ChaCha20Poly1305::new_from_slice(&key).map_err(|_| WireError::Crypto)?;
-    let nonce = nonce(session_id, packet_no);
+    let nonce = nonce(packet_no);
     let plain = cipher
         .decrypt(
             Nonce::from_slice(&nonce),
@@ -234,10 +286,17 @@ mod tests {
     #[test]
     fn seal_open_round_trip() {
         let frame = Frame::new(FrameType::Data, 7, b"hello".to_vec());
-        let sealed = seal(b"psk", b"salt", 1, 2, &frame).expect("seal");
-        let opened = open(b"psk", b"salt", &sealed).expect("open");
+        let sealed = seal(b"psk", b"salt", Direction::ClientToServer, 1, 2, &frame).expect("seal");
+        let opened = open(b"psk", b"salt", Direction::ClientToServer, &sealed).expect("open");
         assert_eq!(opened.session_id, 1);
         assert_eq!(opened.packet_no, 2);
         assert_eq!(opened.frame, frame);
+    }
+
+    #[test]
+    fn direction_keys_do_not_interoperate() {
+        let frame = Frame::new(FrameType::Data, 7, b"hello".to_vec());
+        let sealed = seal(b"psk", b"salt", Direction::ClientToServer, 1, 2, &frame).expect("seal");
+        assert!(open(b"psk", b"salt", Direction::ServerToClient, &sealed).is_err());
     }
 }

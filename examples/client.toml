@@ -8,5 +8,11 @@ poll_interval_ms = 20
 request_timeout_ms = 1000
 retries = 3
 max_payload = 900
+handshake_timeout_ms = 5000
+open_timeout_ms = 10000
+max_local_clients = 64
+# Required when listen_addr is not loopback.
+# socks_username = "operator"
+# socks_password = "replace-with-a-long-random-password"
 # Optional fixed ICMP identifier; default derives from process id.
 # icmp_identifier = 4242

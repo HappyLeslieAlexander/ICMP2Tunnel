@@ -54,10 +54,16 @@ fn build_echo(kind: u8, identifier: u16, sequence: u16, payload: &[u8]) -> Vec<u
 pub fn parse_echo_packet(packet: &[u8]) -> io::Result<EchoPacket> {
     let icmp = strip_ipv4_header(packet)?;
     if icmp.len() < 8 {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "ICMP packet too short"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "ICMP packet too short",
+        ));
     }
     if checksum(icmp) != 0 {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid ICMP checksum"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid ICMP checksum",
+        ));
     }
     Ok(EchoPacket {
         kind: icmp[0],
@@ -71,10 +77,16 @@ fn strip_ipv4_header(packet: &[u8]) -> io::Result<&[u8]> {
     if packet.len() >= 20 && (packet[0] >> 4) == 4 {
         let ihl = usize::from(packet[0] & 0x0f) * 4;
         if ihl < 20 || packet.len() < ihl + 8 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid IPv4 header"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid IPv4 header",
+            ));
         }
         if packet[9] != libc::IPPROTO_ICMP as u8 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "IPv4 packet is not ICMP"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "IPv4 packet is not ICMP",
+            ));
         }
         Ok(&packet[ihl..])
     } else {
@@ -104,10 +116,16 @@ mod raw_unix {
         }
 
         pub fn set_read_timeout(&self, timeout: Option<Duration>) -> io::Result<()> {
-            let tv = timeout.map_or(libc::timeval { tv_sec: 0, tv_usec: 0 }, |duration| libc::timeval {
-                tv_sec: duration.as_secs() as libc::time_t,
-                tv_usec: i64::from(duration.subsec_micros()) as libc::suseconds_t,
-            });
+            let tv = timeout.map_or(
+                libc::timeval {
+                    tv_sec: 0,
+                    tv_usec: 0,
+                },
+                |duration| libc::timeval {
+                    tv_sec: duration.as_secs() as libc::time_t,
+                    tv_usec: i64::from(duration.subsec_micros()) as libc::suseconds_t,
+                },
+            );
             let rc = unsafe {
                 libc::setsockopt(
                     self.fd,
@@ -164,7 +182,10 @@ mod raw_unix {
             if rc < 0 {
                 return Err(io::Error::last_os_error());
             }
-            Ok((rc as usize, Ipv4Addr::from(addr.sin_addr.s_addr.to_ne_bytes())))
+            Ok((
+                rc as usize,
+                Ipv4Addr::from(addr.sin_addr.s_addr.to_ne_bytes()),
+            ))
         }
     }
 
@@ -201,10 +222,16 @@ impl IcmpSocket {
     }
 
     pub fn send_to(&self, _dst: Ipv4Addr, _packet: &[u8]) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Unsupported, "unsupported platform"))
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "unsupported platform",
+        ))
     }
 
     pub fn recv_from(&self, _buf: &mut [u8]) -> io::Result<(usize, Ipv4Addr)> {
-        Err(io::Error::new(io::ErrorKind::Unsupported, "unsupported platform"))
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "unsupported platform",
+        ))
     }
 }

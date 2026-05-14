@@ -117,13 +117,19 @@ struct TargetRule {
 pub struct TargetAcl {
     rules: Vec<TargetRule>,
     deny_local: bool,
+    deny_private: bool,
 }
 
 impl TargetAcl {
     pub fn parse(rules: &[String]) -> Result<Self, AclError> {
+        Self::parse_with_options(rules, true)
+    }
+
+    pub fn parse_with_options(rules: &[String], deny_private: bool) -> Result<Self, AclError> {
         let mut parsed = Vec::with_capacity(rules.len());
         for rule in rules {
-            let (host, port) = split_host_port(rule).ok_or_else(|| AclError::MissingPort(rule.clone()))?;
+            let (host, port) =
+                split_host_port(rule).ok_or_else(|| AclError::MissingPort(rule.clone()))?;
             let port: u16 = port
                 .parse()
                 .map_err(|_| AclError::InvalidRule(rule.clone()))?;
@@ -142,6 +148,7 @@ impl TargetAcl {
         Ok(Self {
             rules: parsed,
             deny_local: true,
+            deny_private,
         })
     }
 
@@ -150,7 +157,8 @@ impl TargetAcl {
     }
 
     pub fn resolve_allowed(&self, target: &str) -> Result<SocketAddr, AclError> {
-        let (host, port_s) = split_host_port(target).ok_or_else(|| AclError::MissingPort(target.to_string()))?;
+        let (host, port_s) =
+            split_host_port(target).ok_or_else(|| AclError::MissingPort(target.to_string()))?;
         let port: u16 = port_s
             .parse()
             .map_err(|_| AclError::InvalidRule(target.to_string()))?;
@@ -172,7 +180,13 @@ impl TargetAcl {
         if self.deny_local && is_default_blocked_ip(ip) {
             return false;
         }
-        let host_lc = host.trim_start_matches('[').trim_end_matches(']').to_ascii_lowercase();
+        if self.deny_private && is_private_or_special_ip(ip) {
+            return false;
+        }
+        let host_lc = host
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .to_ascii_lowercase();
         self.rules.iter().any(|rule| {
             if rule.port != port {
                 return false;
@@ -200,13 +214,33 @@ pub fn split_host_port(input: &str) -> Option<(&str, &str)> {
 pub fn is_default_blocked_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
-            v4.is_loopback()
+            v4.is_unspecified()
+                || v4.is_loopback()
                 || v4.is_link_local()
+                || v4.is_broadcast()
+                || v4.is_multicast()
                 || v4.octets() == [169, 254, 169, 254]
                 || v4.octets() == [169, 254, 169, 253]
                 || v4.octets()[0] == 0
         }
-        IpAddr::V6(v6) => v6.is_loopback() || v6.is_unicast_link_local(),
+        IpAddr::V6(v6) => {
+            v6.is_unspecified()
+                || v6.is_loopback()
+                || v6.is_unicast_link_local()
+                || v6.is_multicast()
+        }
+    }
+}
+
+pub fn is_private_or_special_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            let octets = v4.octets();
+            v4.is_private()
+                || (octets[0] == 100 && (octets[1] & 0b1100_0000) == 64)
+                || (octets[0] == 198 && (octets[1] == 18 || octets[1] == 19))
+        }
+        IpAddr::V6(v6) => v6.is_unique_local(),
     }
 }
 
@@ -220,6 +254,7 @@ pub struct RateLimits {
 pub struct RateLimiter {
     limits: RateLimits,
     window_start: Instant,
+    last_seen: Instant,
     packets: u64,
     bytes: u64,
 }
@@ -229,12 +264,14 @@ impl RateLimiter {
         Self {
             limits,
             window_start: now,
+            last_seen: now,
             packets: 0,
             bytes: 0,
         }
     }
 
     pub fn allow(&mut self, now: Instant, bytes: u64) -> bool {
+        self.last_seen = now;
         if now.duration_since(self.window_start) >= Duration::from_secs(1) {
             self.window_start = now;
             self.packets = 0;
@@ -249,6 +286,10 @@ impl RateLimiter {
         self.packets = self.packets.saturating_add(1);
         self.bytes = self.bytes.saturating_add(bytes);
         true
+    }
+
+    pub fn last_seen(&self) -> Instant {
+        self.last_seen
     }
 }
 
@@ -269,5 +310,18 @@ mod tests {
     fn target_acl_blocks_loopback_even_if_listed() {
         let acl = TargetAcl::parse(&["127.0.0.1:80".to_string()]).expect("parse");
         assert!(!acl.allows_host_ip_port("127.0.0.1", "127.0.0.1".parse().expect("ip"), 80));
+    }
+
+    #[test]
+    fn target_acl_blocks_private_by_default() {
+        let acl = TargetAcl::parse(&["10.0.0.1:443".to_string()]).expect("parse");
+        assert!(!acl.allows_host_ip_port("10.0.0.1", "10.0.0.1".parse().expect("ip"), 443));
+    }
+
+    #[test]
+    fn target_acl_can_allow_private_when_explicitly_enabled() {
+        let acl =
+            TargetAcl::parse_with_options(&["10.0.0.1:443".to_string()], false).expect("parse");
+        assert!(acl.allows_host_ip_port("10.0.0.1", "10.0.0.1".parse().expect("ip"), 443));
     }
 }
